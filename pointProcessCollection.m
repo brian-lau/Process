@@ -161,28 +161,27 @@ classdef pointProcessCollection
          end
       end
       
+      %
+      function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
+         
+         
+         [r,t,r_sem,count,reps] = getPsth(spkTimes,bw,varargin{:});
+         
+      end
+      
       % Alias to raster until I think of better plot
       function [h,yOffset] = plot(self,varargin)
          [h,yOffset] = raster(self,varargin{:});
       end
-      
+            
       function [h,yOffset] = raster(self,varargin)
          % Input can be vector of pointProcessCollections, so we concatonate
-         names = cat(2,self.names);
-         uNames = unique(names);
          array = cat(2,self.array);
-         mask = cat(2,self.mask);
+         [grp,ind] = self.getGrpInd(cat(2,self.names),cat(2,self.mask));
          
-         % Create index for each unique name across all collections
-         for i = 1:length(uNames)
-            ind{i} = find(strcmp(names(mask),uNames{i}));
-            if ~isempty(ind{i})
-               grp(i) = true;
-            end
-         end
          nGrps = sum(grp);
-         
          c = distinguishable_colors(nGrps);
+         
          count = 1;
          h = NaN;
          yOffset = 1;
@@ -192,6 +191,21 @@ classdef pointProcessCollection
             count = count + 1;
          end
       end
-      
+   end
+   
+   methods(Access = private)
+      % return index into all elements of collection that pass mask
+      % TODO
+      % error checking and boundary condition
+      % need to modify of uniqueness is defined by names & locations
+      function [grp,ind] = getGrpInd(self,names,mask)
+         uNames = unique(names);
+         for i = 1:length(uNames)
+            ind{i} = find(strcmp(names(mask),uNames{i}));
+            if ~isempty(ind{i})
+               grp(i) = true;
+            end
+         end
+      end
    end
 end
