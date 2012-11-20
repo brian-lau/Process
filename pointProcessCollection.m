@@ -163,9 +163,17 @@ classdef pointProcessCollection
       
       %
       function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
+         % Input can be vector of pointProcessCollections, so we concatonate
+         array = cat(2,self.array);
+         [grp,ind] = self.getGrpInd(cat(2,self.names),cat(2,self.mask));
          
-         
-         [r,t,r_sem,count,reps] = getPsth(spkTimes,bw,varargin{:});
+         %keyboard
+         % need a window to return these as matrix, otherwise cell array?
+         count = 1;
+         for i = find(grp)
+            [r(:,count),t,r_sem(:,count)] = getPsth({array(ind{i}).times}',bw,varargin{:});
+            count = count + 1;
+         end
          
       end
       
