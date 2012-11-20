@@ -14,27 +14,26 @@
 % sense of ordering here?
 
 % probably should force everything to be a row or column
+%
 classdef pointProcessCollection
 %
    properties(GetAccess = public, SetAccess = private)
+      
       names
+      
       array
+      
       locations
+      
       locDimNames
+      
       mask
-      %minTime %Time first spike occurs in the collection
-      %maxTime %TIme last spike occurs in the collection
-      %sampleRate
    end
-%    properties (GetAccess = public, SetAccess = private, Dependent)
-%       nPointProcess; % a running count of how many nspikeTrains are in object
-%    end
-%    properties(GetAccess = public, SetAccess = public)
-%       window      % [min max] time window of interest
-%    end
-%    properties(GetAccess = private, SetAccess = private)
-%       tAbsShift   % time shift needed to bring spikeTimes back to original
-%    end
+   
+   properties (GetAccess = public, SetAccess = private, Dependent)
+      minTime %Time first spike occurs in the collection
+      maxTime %TIme last spike occurs in the collection      
+   end
    
    methods
       %% Constructor
@@ -99,9 +98,7 @@ classdef pointProcessCollection
       end
       
       function [h,yOffset] = raster(self,varargin)
-         
-         % Input can be vector of pointProcessCollections, so we collect
-         % some useful variables for plotting
+         % Input can be vector of pointProcessCollections, so we concatonate
          names = cat(2,self.names);
          uNames = unique(names);
          array = cat(2,self.array);
@@ -135,11 +132,8 @@ classdef pointProcessCollection
 %          
 %          [h,yOffset] = plotRaster(cellTimes,...
 %             varargin{:});
-         
-         % alternative way to do this is to make pointProcess.raster handle
-         % array inputs, then just call plot method on subsets of data and
-         % use yOffset to deal with stacking?
-         %keyboard
+
+         % Create index for each unique name across all collections
          for i = 1:length(uNames)
             ind{i} = find(strcmp(names(mask),uNames{i}));
             if ~isempty(ind{i})
