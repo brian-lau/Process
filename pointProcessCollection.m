@@ -173,35 +173,6 @@ classdef pointProcessCollection
          array = cat(2,self.array);
          mask = cat(2,self.mask);
          
-%          % plotRaster requires a 2-D cell array of times, NaN-padded where
-%          % there is no data. First determine the dimensions of this cell array.
-%          % # of unique groups number to plot = uNames(mask)
-%          for i = 1:length(uNames)
-%             ind{i} = find(strcmp(names(mask),uNames{i}));
-%             if ~isempty(ind{i})
-%                n(i) = length(ind{i});
-%                grp(i) = true;
-%             end
-%          end
-%          maxN = unique(max(n));
-%          nGrps = sum(grp);
-% 
-%          % Now that we know the dimensions, we can preallocate cell array
-%          cellTimes = mat2cell(nan(maxN,nGrps),ones(1,maxN),ones(1,nGrps));
-%          for i = 1:length(uNames)
-%             ind2 = ind{i};
-%             count = 1;
-%             for j = ind2
-%                if mask(j)
-%                   cellTimes{count,i} = array(j).times;
-%                   count = count + 1;
-%                end
-%             end
-%          end
-%          
-%          [h,yOffset] = plotRaster(cellTimes,...
-%             varargin{:});
-
          % Create index for each unique name across all collections
          for i = 1:length(uNames)
             ind{i} = find(strcmp(names(mask),uNames{i}));
