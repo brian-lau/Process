@@ -1,5 +1,13 @@
 % pointprocess collection
 
+% What defines a collection? A good definition is that all elements of the collection
+% Have the same timebase (eg., a trial), so that all operations acting on these
+% elements can assume this. Eg., when defining a method align, we could try to acount
+% for the possibility that each element has a different sync input. This seems very
+% messy. Rather, if we assume the same time base, then generally we want to sync
+% every element in a collection to the same event
+
+
 % spatial location 
 %
 
@@ -14,11 +22,11 @@
 % sense of ordering here?
 
 % probably should force everything to be a row or column
-%
+% probably need to verify that names are all of the same type (strs or #)
 classdef pointProcessCollection
 %
    properties(GetAccess = public, SetAccess = private)
-      
+      % Cell array of names
       names
       
       array
@@ -30,9 +38,15 @@ classdef pointProcessCollection
       mask
    end
    
+   % These dependent properties all apply the mask property
    properties (GetAccess = public, SetAccess = private, Dependent)
-      minTime %Time first spike occurs in the collection
-      maxTime %TIme last spike occurs in the collection      
+      minTime % Time first spike occurs in the collection
+      maxTime % TIme last spike occurs in the collection      
+   end
+
+   properties(GetAccess = private, SetAccess = private)
+      % absolute time that all objects in collection are referenced to
+      tAbs;
    end
    
    methods
@@ -90,9 +104,64 @@ classdef pointProcessCollection
          end
       end
       
+      %% Set functions
+      % Set the window property
+      % window can be [1 x 2], where all objects are set to the same window
+      % window can be [nObjs x 2], where each object window is set individually
+      function self = setWindow(self,window)
+         n = length(self);
+
+         if nargin == 1
+            for i = 1:n
+               self(i).array = self(i).array.setWindow();
+            end
+            return;
+         end
+         
+         % check window dimension
+         if numel(window) == 2
+            window = window(:)';
+            window = repmat(window,n,1);
+         end
+         if size(window,1) ~= n
+            error('window must be [1 x 2] or [nObjs x 2]');
+         end
+         
+         for i = 1:n
+            self(i).array = self(i).array.setWindow(window(i,:));
+         end
+      end
+
       %% Get Functions
 
       %% Functions
+      % Align event times
+      % sync can be a scalar, where it is applied to all objects
+      % sync can be [nObjs x 1], where each object is aligned individually
+      function self = align(self,sync,varargin)
+         n = length(self);
+         
+         % check sync dimension
+         if numel(sync) == 1
+            sync = repmat(sync,n,1);
+         elseif ~(numel(sync)==n)
+            error('Sync must have length 1 or numel(obj)');
+         end
+         
+         for i = 1:n
+            self(i).array = self(i).array.align(sync(i));
+         end
+      end
+      
+      % Return pointProcess objects to state when they were created
+      function self = reset(self)
+         n = length(self);
+         for i = 1:n
+            self(i).array = self(i).array.reset();
+         end
+      end
+      
+      % Alias to raster until I think of better plot
       function [h,yOffset] = plot(self,varargin)
          [h,yOffset] = raster(self,varargin{:});
       end
