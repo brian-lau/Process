@@ -6,9 +6,9 @@
 % point process class
 % simulation
 % align - given a value, shift times relative to this
-% psth
 % reset (reset spike times back to original data)
 %       origspikeTimes = spikeTimes + tAbs
+% psth
 % analyses
 %  isi, cv, cv2, lvr
 % conditional mean
@@ -16,20 +16,40 @@
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
-      times  % vector of times at which spikes occured
-      marks  %
+      % vector of event times
+      times;
+      
+      % if marked point process, associated magnitudes
+      marks;
    end
-   properties (GetAccess = public, SetAccess = private, Dependent)
-      isis
-      countingProcess
-%      dirac (indicator)
-   end
+   
    properties(GetAccess = public, SetAccess = public)
- %    units ?
-      window      % [min max] time window of interest
+      % specify the units?
+      timeUnits;
+      markUnits;
+ 
+      % [min max] time window of interest
+      window;
    end
+   
+   % These dependent properties all apply the window property
+   properties (GetAccess = public, SetAccess = private, Dependent)
+      % interspike interval representation
+      isis;
+      
+      % counting process representation
+      countingProcess;
+      
+      % minimum event time within window
+      minTime
+      
+      % minimum event time within window
+      maxTime
+   end
+   
    properties(GetAccess = private, SetAccess = private)
-      tAbsShift   % time shift needed to bring spikeTimes back to original
+      % time shift needed to bring spikeTimes back to original
+      tAbsShift;
    end
    
    methods
@@ -63,7 +83,7 @@ classdef pointProcess
             self.window = [-inf inf];
          else
             if isempty(p.Results.window)
-               self.window = [unique(min(self.times)) unique(max(self.times))];
+               self.window = [min(self.times) max(self.times)];
             else
                self.window = p.Results.window;
             end
@@ -104,8 +124,51 @@ classdef pointProcess
          countingProcess = [[tStart;times] , [0;count]];
       end
       
+      function minTime = get.minTime(self)
+         minTime = min(getTimes(self,self.window));
+      end
+      
+      function maxTime = get.maxTime(self)
+         maxTime = max(getTimes(self,self.window));
+      end
+
       %% Functions
-      % 
+      %
+      function self = align(self,sync,varargin)
+         % automatically call reset
+         %self = self(:);
+%          n = length(self);
+%          for i = 1:n
+%             times{i,1} = getTimes(self(i),self(i).window);
+%          end
+%          window = cat(1,self.window);
+%          
+        % keyboard
+         % check sync 
+         
+         %[alignedTimes,alignedWindow] = alignSpkTimes(times,sync,'window',window);         
+         
+         n = length(self);
+         for i = 1:n
+            [tempTimes,tempWindow] = alignSpkTimes({self(i).times},sync(i),...
+               'window',[min(self(i).times) max(self(i).times)]);
+            self(i).times = tempTimes{1};
+            self(i).window = tempWindow;
+            self(i).tAbsShift = sync(i);
+         end
+      end
+      
+      %
+      function self = reset(self)
+         n = length(self);
+         for i = 1:n
+            self(i).times = self(i).times + self(i).tAbsShift;
+            self(i).window = self(i).window + self(i).tAbsShift;
+            self(i).tAbsShift = 0;
+         end        
+      end
+      
+      % Plot times & counting process
       function [h,yOffset] = plot(self,varargin)
          % TODO 
          % vector input
@@ -115,10 +178,12 @@ classdef pointProcess
             return;
          end
          countingProcess = self.countingProcess;
+
          h = plotRaster({times},'grpBorder',false,...
             'window',self.window,'yOffset',0,'markerStyle','x','markersize',6,...
             'labelYaxis',false,varargin{:});
          stairs(countingProcess(:,1),countingProcess(:,2));
+
          axis tight;
          ylabel('N_t');
       end
@@ -130,10 +195,7 @@ classdef pointProcess
          for i = 1:n
             times{i,1} = getTimes(self(i),self(i).window);
          end
-         window = cat(1,self.window);
          [h,yOffset] = plotRaster(times,varargin{:});
-%          [h,yOffset] = plotRaster({getTimes(self,self.window)},'grpBorder',false,...
-%             'window',self.window,'labelYaxis',false,varargin{:});
       end
    end
    
