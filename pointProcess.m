@@ -1,8 +1,3 @@
-% pointprocess collection
-
-% spatial location 
-%
-
 % point process class
 % simulation
 % align - given a value, shift times relative to this
@@ -34,7 +29,7 @@ classdef pointProcess
    
    % These dependent properties all apply the window property
    properties (GetAccess = public, SetAccess = private, Dependent)
-      % interspike interval representation
+      % interevent interval representation
       isis;
       
       % counting process representation
@@ -48,7 +43,7 @@ classdef pointProcess
    end
    
    properties(GetAccess = private, SetAccess = private)
-      % time shift needed to bring spikeTimes back to original
+      % time shift that returns times back to state when object was created
       tAbsShift;
    end
    
@@ -92,19 +87,55 @@ classdef pointProcess
       end
       
       %% Set functions
+      % Set the window property
+      % Possibly redundant
       function self = set.window(self,window)
-         [m,n] = size(window);
-         if (m*n) ~= 2
+         % TODO
+         % vector input, doesn't seem to work with vector inputs
+         if numel(window) ~= 2
             error('window must be a 2-element vector');
          end
          if window(1) > window(2)
             error('First element of window must be less than second');
          end
+         
          self.window = window;
       end
       
+      % Set the window property
+      % window can be [1 x 2], where all objects are set to the same window
+      % window can be [nObjs x 2], where each object window is set individually
+      function self = setWindow(self,window)
+         n = length(self);
+
+         % Reset to default windows
+         if nargin == 1
+            for i = 1:n
+               self(i).window = [min(self(i).times) max(self(i).times)];
+            end
+            return
+         end
+
+         if numel(window) == 2
+            window = window(:)';
+            window = repmat(window,n,1);
+         end
+         if size(window,1) ~= n
+            error('window must be [1 x 2] or [nObjs x 2]');
+         end
+         if any(window(:,1)>window(:,2))
+            error('First element of window must be less than second');
+         end
+         for i = 1:n
+            self(i).window = window(i,:);
+         end         
+      end
+      
       %% Get Functions
+      % Apply window to times
       function windowedTimes = getTimes(self,window)
+         % TODO
+         % vector input
          if nargin < 2
             window = self.window;
          end
@@ -112,10 +143,12 @@ classdef pointProcess
          windowedTimes = self.times(ind);
       end
       
+      % Interevent interval representation
       function isis = get.isis(self)
          isis = diff(getTimes(self,self.window));
       end
       
+      % Counting process representation
       function countingProcess = get.countingProcess(self)
          window = self.window;
          times = getTimes(self,window);
@@ -124,41 +157,46 @@ classdef pointProcess
          countingProcess = [[tStart;times] , [0;count]];
       end
       
+      % minimum event time within window
       function minTime = get.minTime(self)
          minTime = min(getTimes(self,self.window));
       end
       
+      % maximum event time within window
       function maxTime = get.maxTime(self)
          maxTime = max(getTimes(self,self.window));
       end
 
       %% Functions
-      %
+      % Align event times
+      % sync can be a scalar, where it is applied to all objects
+      % sync can be [nObjs x 1], where each object is aligned individually
+      % NaN elements in sync skipped
       function self = align(self,sync,varargin)
-         % automatically call reset
-         %self = self(:);
-%          n = length(self);
-%          for i = 1:n
-%             times{i,1} = getTimes(self(i),self(i).window);
-%          end
-%          window = cat(1,self.window);
-%          
-        % keyboard
-         % check sync 
-         
-         %[alignedTimes,alignedWindow] = alignSpkTimes(times,sync,'window',window);         
+         % automatically reset
+         self = self.reset();
          
          n = length(self);
+         % check sync dimension
+         if numel(sync) == 1
+            sync = repmat(sync,n,1);
+         elseif ~(numel(sync)==n)
+            error('Sync must have length 1 or nObj');
+         end
+         
          for i = 1:n
-            [tempTimes,tempWindow] = alignSpkTimes({self(i).times},sync(i),...
-               'window',[min(self(i).times) max(self(i).times)]);
-            self(i).times = tempTimes{1};
-            self(i).window = tempWindow;
-            self(i).tAbsShift = sync(i);
+            if ~isnan(sync(i))
+               % Always take all spikes to ensure we can recontruct original times
+               [tempTimes,tempWindow] = alignSpkTimes({self(i).times},sync(i),...
+                  'window',[min(self(i).times) max(self(i).times)]);
+               self(i).times = tempTimes{1};
+               self(i).window = tempWindow;
+               self(i).tAbsShift = sync(i);
+            end
          end
       end
       
-      %
+      % Return times and windows to state when object was created
       function self = reset(self)
          n = length(self);
          for i = 1:n
@@ -169,7 +207,7 @@ classdef pointProcess
       end
       
       % Plot times & counting process
-      function [h,yOffset] = plot(self,varargin)
+      function h = plot(self,varargin)
          % TODO 
          % vector input
          times = getTimes(self,self.window);
@@ -197,6 +235,32 @@ classdef pointProcess
          end
          [h,yOffset] = plotRaster(times,varargin{:});
       end
+      
+      %% Operators
+      function obj = plus(x,y)
+         if isa(x,'pointProcess') && isa(y,'pointProcess')
+            % not done yet
+         elseif isa(x,'pointProcess') && isnumeric(y)
+            obj = align(x,-y);
+         elseif isa(y,'pointProcess') && isnumeric(x)
+            obj = align(y,-x);
+         else
+            error('Plus not defined for inputs');
+         end
+      end
+      
+      function obj = minus(x,y)
+         if isa(x,'pointProcess') && isa(y,'pointProcess')
+            % not done yet
+         elseif isa(x,'pointProcess') && isnumeric(y)
+            obj = align(x,-y);
+         elseif isa(y,'pointProcess') && isnumeric(x)
+            obj = align(y,-x);
+         else
+            error('Minus not defined for inputs');
+         end
+      end
+   
    end
    
 end
