@@ -8,6 +8,9 @@
 %  isi, cv, cv2, lvr
 % conditional mean
 % hazard
+%
+% append - add pointProcess to array
+
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
@@ -88,17 +91,15 @@ classdef pointProcess
       
       %% Set functions
       % Set the window property
-      % Possibly redundant
+      % Redundant, maybe useful to keep for error-checking public setting?
+      % This method does not work for vector inputs, see setWindow()
       function self = set.window(self,window)
-         % TODO
-         % vector input, doesn't seem to work with vector inputs
          if numel(window) ~= 2
             error('window must be a 2-element vector');
          end
          if window(1) > window(2)
             error('First element of window must be less than second');
          end
-         
          self.window = window;
       end
       
@@ -157,12 +158,12 @@ classdef pointProcess
          countingProcess = [[tStart;times] , [0;count]];
       end
       
-      % minimum event time within window
+      % Minimum event time within window
       function minTime = get.minTime(self)
          minTime = min(getTimes(self,self.window));
       end
       
-      % maximum event time within window
+      % Maximum event time within window
       function maxTime = get.maxTime(self)
          maxTime = max(getTimes(self,self.window));
       end
@@ -173,11 +174,11 @@ classdef pointProcess
       % sync can be [nObjs x 1], where each object is aligned individually
       % NaN elements in sync skipped
       function self = align(self,sync,varargin)
-         % automatically reset
+         % Automatically reset
          self = self.reset();
          
          n = length(self);
-         % check sync dimension
+         % Check sync dimension
          if numel(sync) == 1
             sync = repmat(sync,n,1);
          elseif ~(numel(sync)==n)
@@ -186,7 +187,7 @@ classdef pointProcess
          
          for i = 1:n
             if ~isnan(sync(i))
-               % Always take all spikes to ensure we can recontruct original times
+               % Always take all events to ensure we can recontruct original times
                [tempTimes,tempWindow] = alignSpkTimes({self(i).times},sync(i),...
                   'window',[min(self(i).times) max(self(i).times)]);
                self(i).times = tempTimes{1};
@@ -228,18 +229,55 @@ classdef pointProcess
       
       % Raster plot
       function [h,yOffset] = raster(self,varargin)
-         self = self(:);
+         %self = self(:);
+         
+         % Intercept window parameter
+         p = inputParser;
+         p.KeepUnmatched= true;
+         p.FunctionName = 'pointProcess raster method';
+         p.addParamValue('window',[],@isnumeric);
+         p.parse(varargin{:});
+         rasterParams = p.Unmatched; % passed through to plotRaster
+         
+         %keyboard
          n = length(self);
-         for i = 1:n
-            times{i,1} = getTimes(self(i),self(i).window);
+
+         if ~isempty(p.Results.window)
+            % set windows
+            % note that these window changes will not be persistent???
+            window = p.Results.window;
+            if numel(window) == 2
+               window = window(:)';
+               window = repmat(window,n,1);
+            end
+            if size(window,1) ~= n
+               error('window must be [1 x 2] or [nObjs x 2]');
+            end
+            if any(window(:,1)>window(:,2))
+               error('First element of window must be less than second');
+            end
+         else
+            window = cat(1,self.window);
          end
-         [h,yOffset] = plotRaster(times,varargin{:});
+
+         for i = 1:n
+            times{i,1} = getTimes(self(i),window(i,:));
+         end
+         
+         [h,yOffset] = plotRaster(times,rasterParams);
+         
+%          n = length(self);
+%          for i = 1:n
+%             times{i,1} = getTimes(self(i),self(i).window);
+%          end
+%          [h,yOffset] = plotRaster(times,varargin{:});
       end
       
       %% Operators
       function obj = plus(x,y)
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
+            % should merge the objects
          elseif isa(x,'pointProcess') && isnumeric(y)
             obj = align(x,-y);
          elseif isa(y,'pointProcess') && isnumeric(x)
@@ -252,6 +290,7 @@ classdef pointProcess
       function obj = minus(x,y)
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
+            % should delete the times from object
          elseif isa(x,'pointProcess') && isnumeric(y)
             obj = align(x,-y);
          elseif isa(y,'pointProcess') && isnumeric(x)
