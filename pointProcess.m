@@ -238,8 +238,9 @@ classdef pointProcess
          
          n = length(self);
 
+         % Validate if window is passed in
+         % These window changes will NOT be persistent (not copied into object)
          if isfield(params,'window')
-            % note that these window changes will not be persistent
             window = params.window;
             if numel(window) == 2
                window = window(:)';
@@ -260,6 +261,42 @@ classdef pointProcess
          end
          
          [h,yOffset] = plotRaster(times,params);
+      end
+      
+      function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
+         % Intercept window parameter
+         p = inputParser;
+         p.KeepUnmatched= true;
+         p.FunctionName = 'pointProcess raster method';
+         p.addRequired('bw', @isnumeric);
+         p.parse(bw,varargin{:});
+         params = p.Unmatched; % passed through to getPsth
+         
+         n = length(self);
+
+         % Validate if window is passed in
+         % These window changes will NOT be persistent (not copied into object)
+         if isfield(params,'window')
+            window = params.window;
+            if numel(window) == 2
+               window = window(:)';
+               window = repmat(window,n,1);
+            end
+            if size(window,1) ~= n
+               error('window must be [1 x 2] or [nObjs x 2]');
+            end
+            if any(window(:,1)>window(:,2))
+               error('First element of window must be less than second');
+            end
+         else
+            window = cat(1,self.window);
+         end
+
+         for i = 1:n
+            times{i,1} = getTimes(self(i),window(i,:));
+         end
+         
+         [r,t,r_sem,count,reps] = getPsth(times,p.Results.bw,params);
       end
       
       %% Operators
