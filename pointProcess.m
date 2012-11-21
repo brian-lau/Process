@@ -1,31 +1,27 @@
 % point process class
 % simulation
-% align - given a value, shift times relative to this
-% reset (reset spike times back to original data)
-%       origspikeTimes = spikeTimes + tAbs
-% psth
+%
 % analyses
 %  isi, cv, cv2, lvr
 % conditional mean
 % hazard
 %
-% append - add pointProcess to array
+% time conversion between units
 
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
-      % vector of event times
+      % Vector of event times
       times;
       
-      % if marked point process, vector of associated magnitudes
+      % If marked point process, vector of associated magnitudes
       marks;
    end
    
    properties(GetAccess = public, SetAccess = public)
-      % TODO
-      % specify the units? methods for converting
-      % valid units metric seconds (eg, milli, nano, )
+      % Valid units metric seconds (eg, milli, nano, )
       timeUnits = 'seconds';
+
       % This is likely just for info, not useful to convert
       markUnits = 'none';
  
@@ -65,16 +61,16 @@ classdef pointProcess
    methods
       %% Constructor
       function self = pointProcess(varargin)
-         % if spikeTimes is cell array? make an object array
-         % currently allocating object array with a single time vector puts
-         % it in the last element
+         % Constructor arguments are taken as name/value pairs
+         % times
+         % marks
+         % window
+         
          p = inputParser;
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcess constructor';
          p.addParamValue('times',NaN,@isnumeric);
          p.addParamValue('marks',[],@isnumeric); % NEED VALIDATOR
-         p.addParamValue('name','',@ischar); % NEED VALIDATOR
-         p.addParamValue('dt',0.001,@(x)(x>0)); % NEED VALIDATOR
          p.addParamValue('window',[],@isnumeric); % NEED VALIDATOR
          p.parse(varargin{:});
                   
@@ -110,10 +106,10 @@ classdef pointProcess
       end
       
       %% Set functions
-      %% Set the window property
-      % Redundant, maybe useful to keep for error-checking public setting?
-      % This method does not work for vector inputs, see setWindow()
       function self = set.window(self,window)
+         % Set the window property
+         % Useful for error-checking public setting
+         % This method does not work for vector inputs, see setWindow()
          if numel(window) ~= 2
             error('window must be a 2-element vector');
          end
@@ -123,10 +119,10 @@ classdef pointProcess
          self.window = window;
       end
       
-      %% Set the window property
-      % window can be [1 x 2], where all objects are set to the same window
-      % window can be [nObjs x 2], where each object window is set individually
       function self = setWindow(self,window)
+         % Set the window property
+         % window can be [1 x 2], where all objects are set to the same window
+         % window can be [nObjs x 2], where each object window is set individually
          n = length(self);
 
          % Reset to default windows
@@ -141,8 +137,8 @@ classdef pointProcess
          end         
       end
       
-      %% Set windows to earliest and latest event
       function self = setInclusiveWindow(self)
+         % Set windows to earliest and latest event
          n = length(self);
          for i = 1:n
             self(i).window = [min(self(i).times) max(self(i).times)];
@@ -150,9 +146,9 @@ classdef pointProcess
       end
       
       %% Get Functions
-      %% Apply window to times
-      % Note that windowedTimes is a cell array
       function windowedTimes = getTimes(self,window)
+         % Apply window to times
+         % Note that windowedTimes is a cell array
          n = length(self);
          
          % These window changes will NOT be persistent (not copied into object)
@@ -168,14 +164,14 @@ classdef pointProcess
          end         
       end
       
-      %% Interevent interval representation
       function intervals = get.intervals(self)
+         % Interevent interval representation
          times = getTimes(self,self.window);
          intervals = diff(times{1});
       end
       
-      %% Counting process representation
       function countingProcess = get.countingProcess(self)
+         % Counting process representation
          if any(isnan(self.window))
             countingProcess = [NaN NaN];
          else
@@ -188,8 +184,8 @@ classdef pointProcess
          end
       end
       
-      %% # of events within window
       function count = get.count(self)
+         % # of events within window
          if any(isnan(self.window))
             count = 0;
          else
@@ -198,8 +194,8 @@ classdef pointProcess
          end
       end
       
-      %% Minimum event time within window
       function minTime = get.minTime(self)
+         % Minimum event time within window
          if any(isnan(self.window))
             minTime = NaN;
          else
@@ -208,8 +204,8 @@ classdef pointProcess
          end
       end
       
-      %% Maximum event time within window
       function maxTime = get.maxTime(self)
+         % Maximum event time within window
          if any(isnan(self.window))
             maxTime = NaN;
          else
@@ -219,15 +215,16 @@ classdef pointProcess
       end
 
       %% Functions
-      %% Align event times
-      % sync can be a scalar, where it is applied to all objects
-      % sync can be [nObjs x 1], where each object is aligned individually
-      % NaN elements in sync skipped
-      % currently this resets the windows as well. Change?
       function self = align(self,sync,varargin)
+         % Align event times
+         % sync can be a scalar, where it is applied to all objects
+         % sync can be [nObjs x 1], where each object is aligned individually
+         % NaN elements in sync skipped
+         % The window property is also aligned
+         
          % Automatically reset
          self = self.undoAlign();
-         
+
          n = length(self);
          % Check sync dimension
          if numel(sync) == 1
@@ -243,14 +240,14 @@ classdef pointProcess
                   'window',[min(self(i).times) max(self(i).times)]);
                self(i).times = tempTimes{1};
                self(i).window = self(i).window - sync(i);
-               %self(i).window = tempWindow; % reset windows
+               %self(i).window = tempWindow; % same as setInclusiveWindow
                self(i).tAbsShift = sync(i);
             end
          end
       end
       
-      %% Undo align
       function self = undoAlign(self)
+         % Undo align
          n = length(self);
          for i = 1:n
             self(i).times = self(i).times + self(i).tAbsShift;
@@ -259,8 +256,8 @@ classdef pointProcess
          end
       end
       
-      %% Return times and windows to state when object was created
       function self = reset(self)
+         % Reset times and windows to state when object was created
          self = self.undoAlign();
          
          n = length(self);
@@ -269,8 +266,8 @@ classdef pointProcess
          end
       end
       
-      %% Plot times & counting process
       function h = plot(self,varargin)
+         % Plot times & counting process
          % TODO 
          % vector input? Maybe just pool all times
          % allow passing in handle
@@ -290,8 +287,9 @@ classdef pointProcess
          ylabel('N_t');
       end
       
-      %% Raster plot
       function [h,yOffset] = raster(self,varargin)
+         % Raster plot
+         
          % Intercept window parameter
          p = inputParser;
          p.KeepUnmatched= true;
@@ -318,8 +316,11 @@ classdef pointProcess
          [h,yOffset] = plotRaster(times,p.Results,params);
       end
       
-      %% Get intensity representation
       function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
+         % Get intensity representation
+         % When timeUnits functioning, need to reconcile units with bandwidth
+         % here
+         
          % Intercept window parameter
          p = inputParser;
          p.KeepUnmatched= true;
@@ -342,8 +343,8 @@ classdef pointProcess
       end
       
       %% Operators
-      %% Addition
       function obj = plus(x,y)
+         % Addition
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
             % should merge the objects
@@ -356,8 +357,8 @@ classdef pointProcess
          end
       end
       
-      %% Subtraction
       function obj = minus(x,y)
+         % Subtraction
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
             % should delete the times from object
@@ -373,8 +374,8 @@ classdef pointProcess
    end
    
    methods(Static, Access = private)
-      %% Validate window, and replicate if necessary
       function validWindow = checkWindow(window,n)
+         % Validate window, and replicate if necessary
          if nargin == 1
             n = 1;
          end
