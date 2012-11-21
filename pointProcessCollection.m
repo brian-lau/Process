@@ -118,7 +118,7 @@ classdef pointProcessCollection
             return;
          end
          
-         % check window dimension
+         % check window dimensions
          if numel(window) == 2
             window = window(:)';
             window = repmat(window,n,1);
@@ -141,7 +141,7 @@ classdef pointProcessCollection
       function self = align(self,sync,varargin)
          n = length(self);
          
-         % check sync dimension
+         % check sync dimensions
          if numel(sync) == 1
             sync = repmat(sync,n,1);
          elseif ~(numel(sync)==n)
@@ -168,7 +168,27 @@ classdef pointProcessCollection
          [grp,ind] = self.getGrpInd(cat(2,self.names),cat(2,self.mask));
          
          %keyboard
+         % Since this loops, each call to getPsth will use a default window
          % need a window to return these as matrix, otherwise cell array?
+         % we should
+         %  default to window including all event times passing mask
+         %  these will naturally all be seen through the individual
+         %  pointProcess windows
+         %  
+         %  passing in explicit window works as well, but this is applied
+         %  on top of any windows in the individual pointProcess windows
+         %  we should call setWindow() first!
+         %  What's the cleanest way to do this while still allowing all the
+         %  varargins to go through? inputParser...
+         %
+         %  if we try to enforce that r is a matrix, how can we pass back
+         %  reps?
+         %
+         %  another approach would be to extract a cell array in the old
+         %  format expected by getPsth?
+         %
+         %  yet another approach is to define a method for pointProcess,
+         %  and then call that? like raster method?
          count = 1;
          for i = find(grp)
             [r(:,count),t,r_sem(:,count)] = getPsth({array(ind{i}).times}',bw,varargin{:});
@@ -183,16 +203,20 @@ classdef pointProcessCollection
       end
             
       function [h,yOffset] = raster(self,varargin)
+         % TODO
+         % Like getPsth method, passing in a window goes through to raster
+         % However, each object in collection has its own window
+         % should inputParse and apply explicitly set window. Perhaps it is
+         % best to do this in the pointProcess method (do the same for
+         % getPsth)
+         %
          % Input can be vector of pointProcessCollections, so we concatonate
          array = cat(2,self.array);
          [grp,ind] = self.getGrpInd(cat(2,self.names),cat(2,self.mask));
          
-         nGrps = sum(grp);
-         c = distinguishable_colors(nGrps);
+         c = distinguishable_colors(sum(grp));
          
-         count = 1;
-         h = NaN;
-         yOffset = 1;
+         count = 1; h = NaN; yOffset = 1;
          for i = find(grp)
             [h,yOffset] = array(ind{i}).raster('handle',h,'yOffset',...
                yOffset,'grpColor',c(count,:),varargin{:});
@@ -201,12 +225,19 @@ classdef pointProcessCollection
       end
    end
    
-   methods(Access = private)
-      % return index into all elements of collection that pass mask
+   methods(Static, Access = private)
+      % Return index into all elements of collection that pass mask
+      % names : cell array of names from collection
+      % mask  : corresponding boolean mask from collection
+      %
+      % grp   : boolean indicating whether array object contains data
+      % ind   : cell array with the corresponding indices
+      %
       % TODO
-      % error checking and boundary condition
+      % error checking and boundary conditions
       % need to modify of uniqueness is defined by names & locations
-      function [grp,ind] = getGrpInd(self,names,mask)
+      function [grp,ind] = getGrpInd(names,mask)
+         % Check dimensions
          uNames = unique(names);
          for i = 1:length(uNames)
             ind{i} = find(strcmp(names(mask),uNames{i}));
