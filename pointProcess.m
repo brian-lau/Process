@@ -209,6 +209,7 @@ classdef pointProcess
       % sync can be a scalar, where it is applied to all objects
       % sync can be [nObjs x 1], where each object is aligned individually
       % NaN elements in sync skipped
+      % currently this resets the windows as well. Change?
       function self = align(self,sync,varargin)
          % Automatically reset
          self = self.reset();
@@ -227,7 +228,8 @@ classdef pointProcess
                [tempTimes,tempWindow] = alignSpkTimes({self(i).times},sync(i),...
                   'window',[min(self(i).times) max(self(i).times)]);
                self(i).times = tempTimes{1};
-               self(i).window = tempWindow;
+               self(i).window = self(i).window - sync(i);
+               %self(i).window = tempWindow; % reset windows
                self(i).tAbsShift = sync(i);
             end
          end
@@ -343,7 +345,7 @@ classdef pointProcess
    end
    
    methods(Static, Access = private)
-      % Validate window, and replicate if necessary
+      %% Validate window, and replicate if necessary
       function validWindow = checkWindow(window,n)
          if nargin == 1
             n = 1;
