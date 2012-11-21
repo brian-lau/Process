@@ -7,8 +7,15 @@
 % messy. Rather, if we assume the same time base, then generally we want to sync
 % every element in a collection to the same event
 
+% Design goals
+%  should provide translation to
+%   1) nStat toolbox
+%
 
-% spatial location 
+% locations should probably be a cell array in case one wants to specify
+% non-numeric labels
+% the reason it is separate from names is to provide for the possibility of
+% multiple data from the same location
 %
 
 % simulation
@@ -21,7 +28,7 @@
 % instances of the same name? eg., trials into collection, there is no
 % sense of ordering here?
 
-% probably should force everything to be a row or column
+% force everything to be a row or column
 % probably need to verify that names are all of the same type (strs or #)
 classdef pointProcessCollection
 %
@@ -197,19 +204,22 @@ classdef pointProcessCollection
          
       end
       
-      % Alias to raster until I think of better plot
+      % Alias to raster until I think of better plot override
       function [h,yOffset] = plot(self,varargin)
          [h,yOffset] = raster(self,varargin{:});
       end
-            
+      
+      % Inputs can be any of those accepted by plotRaster, except
+      % 
+      % Like getPsth method, passing in a window goes through to raster
+      % However, each object in collection has its own window
+      % should inputParse and apply explicitly set window. Perhaps it is
+      % best to do this in the pointProcess method (do the same for
+      % getPsth)
       function [h,yOffset] = raster(self,varargin)
          % TODO
-         % Like getPsth method, passing in a window goes through to raster
-         % However, each object in collection has its own window
-         % should inputParse and apply explicitly set window. Perhaps it is
-         % best to do this in the pointProcess method (do the same for
-         % getPsth)
-         %
+         % intercept handle and yOffset
+         % how to handle colors? perhaps intercept?
          % Input can be vector of pointProcessCollections, so we concatonate
          array = cat(2,self.array);
          [grp,ind] = self.getGrpInd(cat(2,self.names),cat(2,self.mask));

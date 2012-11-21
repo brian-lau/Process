@@ -63,8 +63,6 @@ classdef pointProcess
          % if spikeTimes is cell array? make an object array
          % currently allocating object array with a single time vector puts
          % it in the last element
-         % also contruct using isis or counting process? won't work now
-         % since these are dependent...
          p = inputParser;
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcess constructor';
@@ -97,7 +95,7 @@ classdef pointProcess
       end
       
       %% Set functions
-      % Set the window property
+      %% Set the window property
       % Redundant, maybe useful to keep for error-checking public setting?
       % This method does not work for vector inputs, see setWindow()
       function self = set.window(self,window)
@@ -110,7 +108,7 @@ classdef pointProcess
          self.window = window;
       end
       
-      % Set the window property
+      %% Set the window property
       % window can be [1 x 2], where all objects are set to the same window
       % window can be [nObjs x 2], where each object window is set individually
       function self = setWindow(self,window)
@@ -128,7 +126,7 @@ classdef pointProcess
          end         
       end
       
-      % Reset to default windows
+      %% Reset to default windows
       function self = resetWindow(self)
          n = length(self);
          for i = 1:n
@@ -137,7 +135,7 @@ classdef pointProcess
       end
       
       %% Get Functions
-      % Apply window to times
+      %% Apply window to times
       % Note that windowedTimes is a cell array
       function windowedTimes = getTimes(self,window)
          n = length(self);
@@ -156,13 +154,13 @@ classdef pointProcess
          end         
       end
       
-      % Interevent interval representation
+      %% Interevent interval representation
       function intervals = get.intervals(self)
          times = getTimes(self,self.window);
          intervals = diff(times{1});
       end
       
-      % Counting process representation
+      %% Counting process representation
       function countingProcess = get.countingProcess(self)
          if any(isnan(self.window))
             countingProcess = [NaN NaN];
@@ -176,7 +174,7 @@ classdef pointProcess
          end
       end
       
-      % # of events within window
+      %% # of events within window
       function count = get.count(self)
          if any(isnan(self.window))
             count = 0;
@@ -186,7 +184,7 @@ classdef pointProcess
          end
       end
       
-      % Minimum event time within window
+      %% Minimum event time within window
       function minTime = get.minTime(self)
          if any(isnan(self.window))
             minTime = NaN;
@@ -196,7 +194,7 @@ classdef pointProcess
          end
       end
       
-      % Maximum event time within window
+      %% Maximum event time within window
       function maxTime = get.maxTime(self)
          if any(isnan(self.window))
             maxTime = NaN;
@@ -207,7 +205,7 @@ classdef pointProcess
       end
 
       %% Functions
-      % Align event times
+      %% Align event times
       % sync can be a scalar, where it is applied to all objects
       % sync can be [nObjs x 1], where each object is aligned individually
       % NaN elements in sync skipped
@@ -235,7 +233,7 @@ classdef pointProcess
          end
       end
       
-      % Return times and windows to state when object was created
+      %% Return times and windows to state when object was created
       function self = reset(self)
          n = length(self);
          for i = 1:n
@@ -245,10 +243,11 @@ classdef pointProcess
          end        
       end
       
-      % Plot times & counting process
+      %% Plot times & counting process
       function h = plot(self,varargin)
          % TODO 
          % vector input? Maybe just pool all times
+         % allow passing in handle
          times = getTimes(self,self.window);
          if isempty(times)
             fprintf('No times in window.\n');
@@ -265,7 +264,7 @@ classdef pointProcess
          ylabel('N_t');
       end
       
-      % Raster plot
+      %% Raster plot
       function [h,yOffset] = raster(self,varargin)
          % Intercept window parameter
          p = inputParser;
@@ -288,6 +287,7 @@ classdef pointProcess
          [h,yOffset] = plotRaster(times,params);
       end
       
+      %% Get intensity representation
       function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
          % Intercept window parameter
          p = inputParser;
@@ -312,6 +312,7 @@ classdef pointProcess
       end
       
       %% Operators
+      %% Addition
       function obj = plus(x,y)
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
@@ -325,6 +326,7 @@ classdef pointProcess
          end
       end
       
+      %% Subtraction
       function obj = minus(x,y)
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
