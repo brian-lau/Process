@@ -36,23 +36,30 @@ classdef pointProcessCollection
       % Cell array of names
       names
       
+      % Array of pointProcess objects
       array
       
+      % Array of location information
       locations
       
+      % Labels for the location information
       locDimNames
       
+      % Boolean mask
       mask
    end
    
    % These dependent properties all apply the mask property
    properties (GetAccess = public, SetAccess = private, Dependent)
-      minTime % Time first spike occurs in the collection
-      maxTime % TIme last spike occurs in the collection      
+      % Minimum event time within window
+      minTime
+ 
+      % Maximum event time within window
+      maxTime
    end
 
    properties(GetAccess = private, SetAccess = private)
-      % absolute time that all objects in collection are referenced to
+      % Absolute time that all objects in collection are referenced to
       tAbs;
    end
    
@@ -61,7 +68,7 @@ classdef pointProcessCollection
       function self = pointProcessCollection(varargin)
          
          % allow array to be passed in without name
-         if isa(varargin{1},'pointProcess')
+         if (nargin>1) && isa(varargin{1},'pointProcess')
             self = pointProcessCollection('array',varargin{1},varargin{2:end});
             return;
          end
@@ -78,32 +85,42 @@ classdef pointProcessCollection
          if nargin == 0
             self.array = pointProcess;
          else
-            self.array = p.Results.array;
+            self.array = p.Results.array(:)';
          end
-         [m,n] = size(p.Results.array);
+         %[m,n] = size(p.Results.array);
+         n = length(p.Results.array);
          if isempty(p.Results.names)
-            self.names = cell(m,n);
+            self.names = cell(1,n);
          else
-            if sum(size(p.Results.names)==[m n]) == 2
+            if length(p.Results.names) == n
                self.names = p.Results.names;
             else
                error('Bad names size');
             end
          end
          if isempty(p.Results.locations)
-            self.locations = nan(m,n);
+            self.locations = cell(1,n);
          else
-            if sum(size(p.Results.locations)==[m n]) == 2
+            if size(p.Results.locations,2) == n
                self.locations = p.Results.locations;
             else
                error('Bad locations size');
             end
-            self.locDimNames = {'not done'};
+         end
+         m = size(self.locations,1);
+         if isempty(p.Results.locDimNames)
+            self.locDimNames = cell(m,1);
+         else
+            if sum(size(p.Results.locDimNames)==[m 1]) == 2
+               self.locDimNames = p.Results.locDimNames;
+            else
+               error('Bad locDimNames size');
+            end
          end
          if isempty(p.Results.mask)
-            self.mask = true(m,n);
+            self.mask = true(1,n);
          else
-            if sum(size(p.Results.mask)==[m n]) == 2
+            if length(p.Results.mask) == n
                self.mask = p.Results.mask;
             else
                error('Bad mask size');
@@ -140,6 +157,14 @@ classdef pointProcessCollection
       end
 
       %% Get Functions
+      function minTime = get.minTime(self)
+         % mask
+         minTime = min(cat(1,self.array.minTime));
+      end
+      
+      function maxTime = get.maxTime(self)
+         maxTime = max(cat(1,self.array.minTime));
+      end
 
       %% Functions
       % Align event times
