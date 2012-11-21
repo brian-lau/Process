@@ -22,6 +22,7 @@ classdef pointProcess
    end
    
    properties(GetAccess = public, SetAccess = public)
+      % TODO
       % specify the units?
       timeUnits;
       markUnits;
@@ -38,11 +39,14 @@ classdef pointProcess
       % counting process representation
       countingProcess;
       
-      % minimum event time within window
-      minTime
+      % # of events within window
+      count;
       
       % minimum event time within window
-      maxTime
+      minTime;
+      
+      % minimum event time within window
+      maxTime;
    end
    
    properties(GetAccess = private, SetAccess = private)
@@ -156,6 +160,11 @@ classdef pointProcess
          count = cumsum(ones(size(times)));
          tStart = max(-inf,unique(min(times)));
          countingProcess = [[tStart;times] , [0;count]];
+      end
+      
+      % # of events within window
+      function count = get.count(self)
+         count = length(getTimes(self,self.window));
       end
       
       % Minimum event time within window
