@@ -52,9 +52,14 @@ classdef pointProcess
    end
    
    properties(GetAccess = private, SetAccess = private)
-      % time shift that returns times back to state when object was created
+      % Time shift that returns times back to state when object was created
       % perhaps this should be called tRelShift
       tAbsShift;
+   end
+   
+   properties(GetAccess = private, SetAccess = immutable)
+      % Original [min max] time window of interest
+      window_;
    end
    
    methods
@@ -82,7 +87,8 @@ classdef pointProcess
                self.marks = [];
             end
          end
-         if isempty(p.Results.times)           
+         
+         if isempty(p.Results.times)
             self.window = [-inf inf];
          else
             if isempty(p.Results.window)
@@ -91,6 +97,15 @@ classdef pointProcess
                self.window = p.Results.window;
             end
          end
+         self.window_ = self.window;
+         
+         % Window times and corresponding marks
+         ind = (self.times>=self.window(1)) & (self.times<=self.window(2));
+         self.times = self.times(ind);
+         if ~isempty(self.marks)
+            self.marks = self.marks(ind);
+         end
+         
          self.tAbsShift = 0;
       end
       
@@ -116,7 +131,7 @@ classdef pointProcess
 
          % Reset to default windows
          if nargin == 1
-            self = self.resetWindow();
+            self = self.setInclusiveWindow();
             return
          end
 
@@ -126,8 +141,8 @@ classdef pointProcess
          end         
       end
       
-      %% Reset to default windows
-      function self = resetWindow(self)
+      %% Set windows to earliest and latest event
+      function self = setInclusiveWindow(self)
          n = length(self);
          for i = 1:n
             self(i).window = [min(self(i).times) max(self(i).times)];
@@ -212,7 +227,7 @@ classdef pointProcess
       % currently this resets the windows as well. Change?
       function self = align(self,sync,varargin)
          % Automatically reset
-         self = self.reset();
+         self = self.undoAlign();
          
          n = length(self);
          % Check sync dimension
@@ -235,14 +250,24 @@ classdef pointProcess
          end
       end
       
-      %% Return times and windows to state when object was created
-      function self = reset(self)
+      %% Undo align
+      function self = undoAlign(self)
          n = length(self);
          for i = 1:n
             self(i).times = self(i).times + self(i).tAbsShift;
             self(i).window = self(i).window + self(i).tAbsShift;
             self(i).tAbsShift = 0;
-         end        
+         end
+      end
+      
+      %% Return times and windows to state when object was created
+      function self = reset(self)
+         self = self.undoAlign();
+         
+         n = length(self);
+         for i = 1:n
+            self(i).window = self(i).window_;
+         end
       end
       
       %% Plot times & counting process
@@ -286,6 +311,9 @@ classdef pointProcess
          end
 
          times = getTimes(self,window);
+         if isempty(times)
+            % need to return handle and yOffset if they exist?
+         end
          [h,yOffset] = plotRaster(times,params);
       end
       
@@ -334,9 +362,9 @@ classdef pointProcess
             % not done yet
             % should delete the times from object
          elseif isa(x,'pointProcess') && isnumeric(y)
-            obj = align(x,-y);
+            obj = align(x,y);
          elseif isa(y,'pointProcess') && isnumeric(x)
-            obj = align(y,-x);
+            obj = align(y,x);
          else
             error('Minus not defined for inputs');
          end
