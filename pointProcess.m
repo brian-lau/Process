@@ -155,7 +155,6 @@ classdef pointProcess
       function windowedTimes = getTimes(self,window)
          n = length(self);
          
-         % Validate if window is passed in
          % These window changes will NOT be persistent (not copied into object)
          if nargin == 2
             window = self.checkWindow(window,n);
@@ -297,24 +296,26 @@ classdef pointProcess
          p = inputParser;
          p.KeepUnmatched= true;
          p.FunctionName = 'pointProcess raster method';
+         p.addParamValue('grpBorder',false,@islogical);
+         p.addParamValue('labelYAxis',false,@islogical);
          p.parse(varargin{:});
          params = p.Unmatched; % passed through to plotRaster
          
          n = length(self);
 
-         % Validate if window is passed in
          % These window changes will NOT be persistent (not copied into object)
          if isfield(params,'window')
             window = self.checkWindow(params.window,n);
          else
             window = self.checkWindow(cat(1,self.window),n);
          end
-
+         
          times = getTimes(self,window);
          if isempty(times)
             % need to return handle and yOffset if they exist?
          end
-         [h,yOffset] = plotRaster(times,params);
+
+         [h,yOffset] = plotRaster(times,p.Results,params);
       end
       
       %% Get intensity representation
@@ -329,7 +330,6 @@ classdef pointProcess
          
          n = length(self);
 
-         % Validate if window is passed in
          % These window changes will NOT be persistent (not copied into object)
          if isfield(params,'window')
             window = self.checkWindow(params.window,n);
