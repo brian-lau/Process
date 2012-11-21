@@ -51,6 +51,7 @@ classdef pointProcess
    
    properties(GetAccess = private, SetAccess = private)
       % time shift that returns times back to state when object was created
+      % perhaps this should be called tRelShift
       tAbsShift;
    end
    
@@ -139,13 +140,29 @@ classdef pointProcess
       %% Get Functions
       % Apply window to times
       function windowedTimes = getTimes(self,window)
-         % TODO
-         % vector input
-         if nargin < 2
-            window = self.window;
+         n = length(self);
+         
+         % Validate if window is passed in
+         % These window changes will NOT be persistent (not copied into object)
+         if nargin == 2
+            if numel(window) == 2
+               window = window(:)';
+               window = repmat(window,n,1);
+            end
+            if size(window,1) ~= n
+               error('window must be [1 x 2] or [nObjs x 2]');
+            end
+            if any(window(:,1)>window(:,2))
+               error('First element of window must be less than second');
+            end
+         else
+            window = cat(1,self.window);
          end
-         ind = (self.times>=window(1)) & (self.times<=window(2));
-         windowedTimes = self.times(ind);
+
+         for i = 1:n
+            ind = (self(i).times>=window(i,1)) & (self(i).times<=window(i,2));
+            windowedTimes{i,1} = self(i).times(ind);
+         end         
       end
       
       % Interevent interval representation
@@ -265,10 +282,7 @@ classdef pointProcess
             window = cat(1,self.window);
          end
 
-         for i = 1:n
-            times{i,1} = getTimes(self(i),window(i,:));
-         end
-         
+         times = getTimes(self,window);
          [h,yOffset] = plotRaster(times,params);
       end
       
@@ -301,10 +315,7 @@ classdef pointProcess
             window = cat(1,self.window);
          end
 
-         for i = 1:n
-            times{i,1} = getTimes(self(i),window(i,:));
-         end
-         
+         times = getTimes(self,window);         
          [r,t,r_sem,count,reps] = getPsth(times,p.Results.bw,params);
       end
       
