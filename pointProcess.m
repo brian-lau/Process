@@ -229,23 +229,18 @@ classdef pointProcess
       
       % Raster plot
       function [h,yOffset] = raster(self,varargin)
-         %self = self(:);
-         
          % Intercept window parameter
          p = inputParser;
          p.KeepUnmatched= true;
          p.FunctionName = 'pointProcess raster method';
-         p.addParamValue('window',[],@isnumeric);
          p.parse(varargin{:});
-         rasterParams = p.Unmatched; % passed through to plotRaster
+         params = p.Unmatched; % passed through to plotRaster
          
-         %keyboard
          n = length(self);
 
-         if ~isempty(p.Results.window)
-            % set windows
-            % note that these window changes will not be persistent???
-            window = p.Results.window;
+         if isfield(params,'window')
+            % note that these window changes will not be persistent
+            window = params.window;
             if numel(window) == 2
                window = window(:)';
                window = repmat(window,n,1);
@@ -264,13 +259,7 @@ classdef pointProcess
             times{i,1} = getTimes(self(i),window(i,:));
          end
          
-         [h,yOffset] = plotRaster(times,rasterParams);
-         
-%          n = length(self);
-%          for i = 1:n
-%             times{i,1} = getTimes(self(i),self(i).window);
-%          end
-%          [h,yOffset] = plotRaster(times,varargin{:});
+         [h,yOffset] = plotRaster(times,params);
       end
       
       %% Operators
