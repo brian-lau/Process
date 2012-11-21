@@ -44,9 +44,11 @@ classdef pointProcessCollection
       
       % Labels for the location information
       locDimNames
-      
+   end
+   
+   properties(GetAccess = public, SetAccess = public)
       % Boolean mask
-      mask
+      mask      
    end
    
    % These dependent properties all apply the mask property
@@ -158,12 +160,17 @@ classdef pointProcessCollection
 
       %% Get Functions
       function minTime = get.minTime(self)
-         % mask
-         minTime = min(cat(1,self.array.minTime));
+         array = cat(2,self.array);
+         mask = cat(2,self.mask);
+         validTimes = cat(1,array(mask).minTime);
+         minTime = min(validTimes);
       end
       
       function maxTime = get.maxTime(self)
-         maxTime = max(cat(1,self.array.minTime));
+         array = cat(2,self.array);
+         mask = cat(2,self.mask);
+         validTimes = cat(1,array(mask).maxTime);
+         maxTime = max(validTimes);
       end
 
       %% Functions
