@@ -17,15 +17,17 @@ classdef pointProcess
       % vector of event times
       times;
       
-      % if marked point process, associated magnitudes
+      % if marked point process, vector of associated magnitudes
       marks;
    end
    
    properties(GetAccess = public, SetAccess = public)
       % TODO
-      % specify the units?
-      timeUnits;
-      markUnits;
+      % specify the units? methods for converting
+      % valid units metric seconds (eg, milli, nano, )
+      timeUnits = 'seconds';
+      % This is likely just for info, not useful to convert
+      markUnits = 'none';
  
       % [min max] time window of interest
       window;
@@ -34,7 +36,7 @@ classdef pointProcess
    % These dependent properties all apply the window property
    properties (GetAccess = public, SetAccess = private, Dependent)
       % interevent interval representation
-      isis;
+      intervals;
       
       % counting process representation
       countingProcess;
@@ -116,49 +118,38 @@ classdef pointProcess
 
          % Reset to default windows
          if nargin == 1
-            for i = 1:n
-               self(i).window = [min(self(i).times) max(self(i).times)];
-            end
+            self = self.resetWindow();
             return
          end
 
-         if numel(window) == 2
-            window = window(:)';
-            window = repmat(window,n,1);
-         end
-         if size(window,1) ~= n
-            error('window must be [1 x 2] or [nObjs x 2]');
-         end
-         if any(window(:,1)>window(:,2))
-            error('First element of window must be less than second');
-         end
+         window = self.checkWindow(window,n);         
          for i = 1:n
             self(i).window = window(i,:);
          end         
       end
       
+      % Reset to default windows
+      function self = resetWindow(self)
+         n = length(self);
+         for i = 1:n
+            self(i).window = [min(self(i).times) max(self(i).times)];
+         end
+      end
+      
       %% Get Functions
       % Apply window to times
+      % Note that windowedTimes is a cell array
       function windowedTimes = getTimes(self,window)
          n = length(self);
          
          % Validate if window is passed in
          % These window changes will NOT be persistent (not copied into object)
          if nargin == 2
-            if numel(window) == 2
-               window = window(:)';
-               window = repmat(window,n,1);
-            end
-            if size(window,1) ~= n
-               error('window must be [1 x 2] or [nObjs x 2]');
-            end
-            if any(window(:,1)>window(:,2))
-               error('First element of window must be less than second');
-            end
+            window = self.checkWindow(window,n);
          else
-            window = cat(1,self.window);
+            window = self.checkWindow(cat(1,self.window),n);
          end
-
+         
          for i = 1:n
             ind = (self(i).times>=window(i,1)) & (self(i).times<=window(i,2));
             windowedTimes{i,1} = self(i).times(ind);
@@ -166,32 +157,53 @@ classdef pointProcess
       end
       
       % Interevent interval representation
-      function isis = get.isis(self)
-         isis = diff(getTimes(self,self.window));
+      function intervals = get.intervals(self)
+         times = getTimes(self,self.window);
+         intervals = diff(times{1});
       end
       
       % Counting process representation
       function countingProcess = get.countingProcess(self)
-         window = self.window;
-         times = getTimes(self,window);
-         count = cumsum(ones(size(times)));
-         tStart = max(-inf,unique(min(times)));
-         countingProcess = [[tStart;times] , [0;count]];
+         if any(isnan(self.window))
+            countingProcess = [NaN NaN];
+         else
+            window = self.window;
+            times = getTimes(self,window);
+            times = times{1};
+            count = cumsum(ones(size(times)));
+            tStart = max(-inf,unique(min(times)));
+            countingProcess = [[tStart;times] , [0;count]];
+         end
       end
       
       % # of events within window
       function count = get.count(self)
-         count = length(getTimes(self,self.window));
+         if any(isnan(self.window))
+            count = 0;
+         else
+            times = getTimes(self,self.window);
+            count = length(times{1});
+         end
       end
       
       % Minimum event time within window
       function minTime = get.minTime(self)
-         minTime = min(getTimes(self,self.window));
+         if any(isnan(self.window))
+            minTime = NaN;
+         else
+            times = getTimes(self,self.window);
+            minTime = min(times{1});
+         end
       end
       
       % Maximum event time within window
       function maxTime = get.maxTime(self)
-         maxTime = max(getTimes(self,self.window));
+         if any(isnan(self.window))
+            maxTime = NaN;
+         else
+            times = getTimes(self,self.window);
+            maxTime = max(times{1});
+         end
       end
 
       %% Functions
@@ -236,7 +248,7 @@ classdef pointProcess
       % Plot times & counting process
       function h = plot(self,varargin)
          % TODO 
-         % vector input
+         % vector input? Maybe just pool all times
          times = getTimes(self,self.window);
          if isempty(times)
             fprintf('No times in window.\n');
@@ -244,8 +256,8 @@ classdef pointProcess
          end
          countingProcess = self.countingProcess;
 
-         h = plotRaster({times},'grpBorder',false,...
-            'window',self.window,'yOffset',0,'markerStyle','x','markersize',6,...
+         h = plotRaster(times,'grpBorder',false,...
+            'window',self.window,'yOffset',0.1,'markerStyle','x','markersize',6,...
             'labelYaxis',false,varargin{:});
          stairs(countingProcess(:,1),countingProcess(:,2));
 
@@ -267,19 +279,9 @@ classdef pointProcess
          % Validate if window is passed in
          % These window changes will NOT be persistent (not copied into object)
          if isfield(params,'window')
-            window = params.window;
-            if numel(window) == 2
-               window = window(:)';
-               window = repmat(window,n,1);
-            end
-            if size(window,1) ~= n
-               error('window must be [1 x 2] or [nObjs x 2]');
-            end
-            if any(window(:,1)>window(:,2))
-               error('First element of window must be less than second');
-            end
+            window = self.checkWindow(params.window,n);
          else
-            window = cat(1,self.window);
+            window = self.checkWindow(cat(1,self.window),n);
          end
 
          times = getTimes(self,window);
@@ -300,19 +302,9 @@ classdef pointProcess
          % Validate if window is passed in
          % These window changes will NOT be persistent (not copied into object)
          if isfield(params,'window')
-            window = params.window;
-            if numel(window) == 2
-               window = window(:)';
-               window = repmat(window,n,1);
-            end
-            if size(window,1) ~= n
-               error('window must be [1 x 2] or [nObjs x 2]');
-            end
-            if any(window(:,1)>window(:,2))
-               error('First element of window must be less than second');
-            end
+            window = self.checkWindow(params.window,n);
          else
-            window = cat(1,self.window);
+            window = self.checkWindow(cat(1,self.window),n);
          end
 
          times = getTimes(self,window);         
@@ -348,4 +340,27 @@ classdef pointProcess
    
    end
    
+   methods(Static, Access = private)
+      % Validate window, and replicate if necessary
+      function validWindow = checkWindow(window,n)
+         if nargin == 1
+            n = 1;
+         end
+         
+         if numel(window) == 2
+            window = window(:)';
+            window = repmat(window,n,1);
+         end
+         if size(window,1) ~= n
+            error('window must be [1 x 2] or [nObjs x 2]');
+         end
+         if any(window(:,1)>window(:,2))
+            error('First element of window must be less than second');
+         end
+         
+         validWindow = window;
+      end
+   end
+   
 end
+
