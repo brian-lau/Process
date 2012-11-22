@@ -77,22 +77,25 @@ classdef pointProcessCollection
          % enforce common timeUnit in array
          
          % Allow array to be passed in without name
-         if (nargin>=1) && isa(varargin{1},'pointProcess')
-            self = pointProcessCollection('array',varargin{1},varargin{2:end});
-            return;
-         end
-         p = inputParser;
-         p.KeepUnmatched= false;
-         p.FunctionName = 'pointProcessCollection constructor';
-         p.addParamValue('array',pointProcess,@(x)isa(x,'pointProcess')); % NEED VALIDATOR
-         p.addParamValue('mask',[],@(x)islogical(x)||isempty(x)); % NEED VALIDATOR
-         p.parse(varargin{:});
-
          if nargin == 0
             self = pointProcessCollection('array',pointProcess);
             return;
          end
+         
+         if (nargin>=1) && isa(varargin{1},'pointProcess')
+            self = pointProcessCollection('array',varargin{1},varargin{2:end});
+            return;
+         end
+         
+         p = inputParser;
+         p.KeepUnmatched= false;
+         p.FunctionName = 'pointProcessCollection constructor';
+         p.addParamValue('array',pointProcess,@(x)isa(x,'pointProcess')); % NEED VALIDATOR
+         %p.addParamValue('mask',[],@(x)islogical(x)||isempty(x)); % NEED VALIDATOR
+         p.parse(varargin{:});
 
+         % tAbs must match for each pointProcessCollection element, return
+         % an object array, ordered by tAbs, when this is not the case
          array = p.Results.array(:)';
          tAbs = [array.tAbs];
          uTAbs = unique(tAbs);
@@ -104,35 +107,22 @@ classdef pointProcessCollection
             
             n = length(array(ind));
             for j = 1:n
-               self(1,i).names{j} = self(1,i).array(j).name; %array(j).name
+               self(1,i).names{j} = self(1,i).array(j).name;
             end
             
-            if isempty(p.Results.mask)
+            %if isempty(p.Results.mask)
                self(1,i).mask = true(1,n);
-            else
-               if length(p.Results.mask) == n
-                  self(1,i).mask = p.Results.mask;
-               else
-                  error('Bad mask size');
-               end
-            end
+            %else
+            %   if length(p.Results.mask) == n
+            %      self(1,i).mask = p.Results.mask;
+            %   else
+            %      error('Bad mask size');
+            %   end
+            %end
             
             self(1,i).tAbs = uTAbs(i);
          end
          
-%          n = length(p.Results.array);
-%          for i = 1:n
-%             self.names{i} = self.array(i).name;
-%          end
-%          if isempty(p.Results.mask)
-%             self.mask = true(1,n);
-%          else
-%             if length(p.Results.mask) == n
-%                self.mask = p.Results.mask;
-%             else
-%                error('Bad mask size');
-%             end
-%          end
       end
       
       %% Set functions
