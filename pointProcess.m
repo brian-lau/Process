@@ -14,6 +14,8 @@
 % This may not even really make sense, not really units, more
 % representation
 
+% probably need methods to get and set info & infoLabels?
+
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
@@ -21,7 +23,7 @@ classdef pointProcess
       
       info;
       
-      infoNames;
+      infoLabels;
       
       % Vector of event times
       times;
@@ -64,8 +66,10 @@ classdef pointProcess
       % perhaps this should be called tRelShift
       tAbsShift;
    end
-   
+      
    properties(GetAccess = private, SetAccess = immutable)
+      % Time that event times are relative to when object is constructed
+      tAbs;
       % Original [min max] time window of interest
       window_;
    end
@@ -74,24 +78,26 @@ classdef pointProcess
       %% Constructor
       function self = pointProcess(varargin)
          % Constructor, arguments are taken as name/value pairs
-         % name
-         % info
-         % infoNames -
-         % times
-         % marks
-         % window -     Defaults to window that includes all event times,
+         % name       - string identifier
+         % info       - cell array of information about process
+         % infoLabels - cell array of strings labelling info elements
+         % times      - Vector of event times
+         % marks      - Corresponding vector of magnitudes for "marked" process
+         % window     - Defaults to window that includes all event times,
          %              If a smaller window is passed in, event times outside
          %              the window will be DISCARDED.
+         % tAbs       - Time that event times are relative
          
          p = inputParser;
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcess constructor';
          p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
          p.addParamValue('info',[],@iscell);
-         p.addParamValue('infoNames',[],@iscell);
+         p.addParamValue('infoLabels',[],@iscell);
          p.addParamValue('times',NaN,@isnumeric);
          p.addParamValue('marks',[],@isnumeric); % NEED VALIDATOR
          p.addParamValue('window',[],@isnumeric); % NEED VALIDATOR
+         p.addParamValue('tAbs',0,@isnumeric);
          p.parse(varargin{:});
          
          self.name = p.Results.name;
@@ -102,19 +108,19 @@ classdef pointProcess
             self.info = {};
          end
          
-         if ~isempty(p.Results.infoNames)
-            infoNames = p.Results.infoNames(:);
-            if length(infoNames) == length(self.info)
-               self.infoNames = infoNames;
+         if ~isempty(p.Results.infoLabels)
+            infoLabels = p.Results.infoLabels(:);
+            if length(infoLabels) == length(self.info)
+               self.infoLabels = infoLabels;
             else
-               error('Dimensions of infoNames must match info');
+               error('Dimensions of infoLabels must match info');
             end
          else
             if isempty(p.Results.info)
-               self.infoNames = {};
+               self.infoLabels = {};
             else
                for i = 1:length(self.info)
-                  self.infoNames{i,1} = ['dim' num2str(i)];
+                  self.infoLabels{i,1} = ['dim' num2str(i)];
                end
             end
          end
@@ -145,6 +151,12 @@ classdef pointProcess
          self.times = self.times(ind);
          if ~isempty(self.marks)
             self.marks = self.marks(ind);
+         end
+         
+         if p.Results.tAbs == 0
+            self.tAbs = 0;
+         else
+            self.tAbs = p.Results.tAbs;
          end
          
          self.tAbsShift = 0;
