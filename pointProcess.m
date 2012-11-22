@@ -70,7 +70,9 @@ classdef pointProcess
          % Constructor, arguments are taken as name/value pairs
          % times
          % marks
-         % window
+         % window - Defaults to window that includes all event times,
+         %          If a smaller window is passed in, event times outside
+         %          the window will be DISCARDED.
          
          p = inputParser;
          p.KeepUnmatched= false;
@@ -101,7 +103,7 @@ classdef pointProcess
          end
          self.window_ = self.window;
          
-         % Window times and corresponding marks
+         % Window the event times and corresponding marks
          ind = (self.times>=self.window(1)) & (self.times<=self.window(2));
          self.times = self.times(ind);
          if ~isempty(self.marks)
