@@ -17,6 +17,12 @@
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
+      name;
+      
+      info;
+      
+      infoNames;
+      
       % Vector of event times
       times;
       
@@ -68,20 +74,51 @@ classdef pointProcess
       %% Constructor
       function self = pointProcess(varargin)
          % Constructor, arguments are taken as name/value pairs
+         % name
+         % info
+         % infoNames -
          % times
          % marks
-         % window - Defaults to window that includes all event times,
-         %          If a smaller window is passed in, event times outside
-         %          the window will be DISCARDED.
+         % window -     Defaults to window that includes all event times,
+         %              If a smaller window is passed in, event times outside
+         %              the window will be DISCARDED.
          
          p = inputParser;
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcess constructor';
+         p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
+         p.addParamValue('info',[],@iscell);
+         p.addParamValue('infoNames',[],@iscell);
          p.addParamValue('times',NaN,@isnumeric);
          p.addParamValue('marks',[],@isnumeric); % NEED VALIDATOR
          p.addParamValue('window',[],@isnumeric); % NEED VALIDATOR
          p.parse(varargin{:});
-                  
+         
+         self.name = p.Results.name;
+         
+         if ~isempty(p.Results.info)
+            self.info = p.Results.info(:);
+         else
+            self.info = {};
+         end
+         
+         if ~isempty(p.Results.infoNames)
+            infoNames = p.Results.infoNames(:);
+            if length(infoNames) == length(self.info)
+               self.infoNames = infoNames;
+            else
+               error('Dimensions of infoNames must match info');
+            end
+         else
+            if isempty(p.Results.info)
+               self.infoNames = {};
+            else
+               for i = 1:length(self.info)
+                  self.infoNames{i,1} = ['dim' num2str(i)];
+               end
+            end
+         end
+         
          self.times = sort(p.Results.times(:));
          if ~isempty(p.Results.marks)
             marks = p.Results.marks(:);
@@ -288,10 +325,11 @@ classdef pointProcess
 
          h = plotRaster(times,'grpBorder',false,...
             'window',self.window,'yOffset',0.1,'markerStyle','x','markersize',6,...
-            'labelYaxis',false,varargin{:});
+            'labelXAxis',false,'labelYaxis',false,varargin{:});
          stairs(countingProcess(:,1),countingProcess(:,2));
 
          axis tight;
+         xlabel(['Time (' self.timeUnits ')']);
          ylabel('N_t');
       end
       
@@ -299,18 +337,24 @@ classdef pointProcess
          % Raster plot
          % For a full description of the possible parameters, see the help
          % for plotRaster
-         
+
          % Intercept window parameter
+         n = length(self);
+         if n < 10
+            ms = 6;
+         else
+            ms = 3;
+         end
          p = inputParser;
          p.KeepUnmatched= true;
          p.FunctionName = 'pointProcess raster method';
+         p.addParamValue('markerSize',ms,@isnumeric);
          p.addParamValue('grpBorder',false,@islogical);
+         p.addParamValue('labelXAxis',false,@islogical);
          p.addParamValue('labelYAxis',false,@islogical);
          p.parse(varargin{:});
          params = p.Unmatched; % passed through to plotRaster
          
-         n = length(self);
-
          % These window changes will NOT be persistent (not copied into object)
          if isfield(params,'window')
             window = self.checkWindow(params.window,n);
@@ -324,6 +368,8 @@ classdef pointProcess
          end
 
          [h,yOffset] = plotRaster(times,p.Results,params);
+         xlabel('Time');
+         %xlabel(['Time (' self.timeUnits ')']);
       end
       
       function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
