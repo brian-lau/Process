@@ -48,11 +48,6 @@ classdef pointProcessCollection
       % Array of pointProcess objects
       array
       
-%      % Array of location information
-%      locations
-      
-%      % Labels for the location information
-%      locDimNames
    end
    
    properties(GetAccess = public, SetAccess = public)
@@ -69,7 +64,7 @@ classdef pointProcessCollection
       maxTime
    end
 
-   properties(GetAccess = private, SetAccess = private)
+   properties(GetAccess = public, SetAccess = private)
       % Absolute time that all objects in collection are referenced to
       tAbs;
    end
@@ -90,64 +85,54 @@ classdef pointProcessCollection
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcessCollection constructor';
          p.addParamValue('array',pointProcess,@(x)isa(x,'pointProcess')); % NEED VALIDATOR
-%         p.addParamValue('names',[],@iscell); % NEED VALIDATOR
-%         p.addParamValue('locations',[],@isnumeric); % NEED VALIDATOR
-%         p.addParamValue('locDimNames',[],@iscell); % NEED VALIDATOR
-         p.addParamValue('mask',[],@islogical); % NEED VALIDATOR
+         p.addParamValue('mask',[],@(x)islogical(x)||isempty(x)); % NEED VALIDATOR
          p.parse(varargin{:});
 
          if nargin == 0
-            self.array = pointProcess;
-         else
-            % Produce warning when array is not a vector!
-            self.array = p.Results.array(:)';
+            self = pointProcessCollection('array',pointProcess);
+            return;
          end
-         n = length(p.Results.array);
-         
-         for i = 1:n
-            self.names{i} = self.array(i).name;
-         end
-         %keyboard
-%          if isempty(p.Results.names)
-%             self.names = cell(1,n);
-%             for i = 1:n
-%                self.names{i} = num2str(i);
-%             end
-%          else
-%             if length(p.Results.names) == n
-%                self.names = p.Results.names;
-%             else
-%                error('Bad names size');
-%             end
-%          end
-%          if isempty(p.Results.locations)
-%             self.locations = cell(1,n);
-%          else
-%             if size(p.Results.locations,2) == n
-%                self.locations = p.Results.locations;
-%             else
-%                error('Bad locations size');
-%             end
-%          end
-%          m = size(self.locations,1);
-%          if isempty(p.Results.locDimNames)
-%             self.locDimNames = cell(m,1);
-%          else
-%             if sum(size(p.Results.locDimNames)==[m 1]) == 2
-%                self.locDimNames = p.Results.locDimNames;
-%             else
-%                error('Bad locDimNames size');
-%             end
-%          end
-         if isempty(p.Results.mask)
-            self.mask = true(1,n);
-         else
-            if length(p.Results.mask) == n
-               self.mask = p.Results.mask;
-            else
-               error('Bad mask size');
+
+         array = p.Results.array(:)';
+         tAbs = [array.tAbs];
+         uTAbs = unique(tAbs);
+
+         for i = 1:length(uTAbs)
+            ind = tAbs == uTAbs(i);
+            
+            self(1,i).array = array(ind);
+            
+            n = length(array(ind));
+            for j = 1:n
+               self(1,i).names{j} = self(1,i).array(j).name; %array(j).name
             end
+            
+            if isempty(p.Results.mask)
+               self(1,i).mask = true(1,n);
+            else
+               if length(p.Results.mask) == n
+                  self(1,i).mask = p.Results.mask;
+               else
+                  error('Bad mask size');
+               end
+            end
+            
+            self(1,i).tAbs = uTAbs(i);
          end
+         
+%          n = length(p.Results.array);
+%          for i = 1:n
+%             self.names{i} = self.array(i).name;
+%          end
+%          if isempty(p.Results.mask)
+%             self.mask = true(1,n);
+%          else
+%             if length(p.Results.mask) == n
+%                self.mask = p.Results.mask;
+%             else
+%                error('Bad mask size');
+%             end
+%          end
       end
       
       %% Set functions
