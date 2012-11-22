@@ -2,11 +2,17 @@
 % simulation
 %
 % analyses
-%  isi, cv, cv2, lvr
+% x intensity (basic)
+%  isi, 
+%      cv, cv2, lvr
 % conditional mean
 % hazard
 %
 % time conversion between units
+% this will mean that times property will not necessarily be vector??
+%   eg., if events are coded as hours, min, seconds
+% This may not even really make sense, not really units, more
+% representation
 
 classdef pointProcess
 %
@@ -19,7 +25,7 @@ classdef pointProcess
    end
    
    properties(GetAccess = public, SetAccess = public)
-      % Valid units metric seconds (eg, milli, nano, )
+      % Time representation 
       timeUnits = 'seconds';
 
       % This is likely just for info, not useful to convert
@@ -61,7 +67,7 @@ classdef pointProcess
    methods
       %% Constructor
       function self = pointProcess(varargin)
-         % Constructor arguments are taken as name/value pairs
+         % Constructor, arguments are taken as name/value pairs
          % times
          % marks
          % window
@@ -289,6 +295,8 @@ classdef pointProcess
       
       function [h,yOffset] = raster(self,varargin)
          % Raster plot
+         % For a full description of the possible parameters, see the help
+         % for plotRaster
          
          % Intercept window parameter
          p = inputParser;

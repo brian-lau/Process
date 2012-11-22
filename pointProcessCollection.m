@@ -12,6 +12,15 @@
 %   1) nStat toolbox
 %
 
+% when we have arrays of collections
+% we want to be able to :
+% get psth with ability to mask names and array elements (trials)
+% get event counts in the same manner
+% 
+% do all of the above after aligning
+% do all of the above in specific windows applied to all trials
+% do all of the above in windows applied to each trial
+
 % locations should probably be a cell array in case one wants to specify
 % non-numeric labels
 % the reason it is separate from names is to provide for the possibility of
@@ -68,9 +77,12 @@ classdef pointProcessCollection
    methods
       %% Constructor
       function self = pointProcessCollection(varargin)
+         % Constructor, arguments are taken as name/value pairs
+         % TODO
+         % enforce common timeUnit in array
          
-         % allow array to be passed in without name
-         if (nargin>1) && isa(varargin{1},'pointProcess')
+         % Allow array to be passed in without name
+         if (nargin>=1) && isa(varargin{1},'pointProcess')
             self = pointProcessCollection('array',varargin{1},varargin{2:end});
             return;
          end
@@ -87,12 +99,15 @@ classdef pointProcessCollection
          if nargin == 0
             self.array = pointProcess;
          else
+            % Produce warning when array is not a vector!
             self.array = p.Results.array(:)';
          end
-         %[m,n] = size(p.Results.array);
          n = length(p.Results.array);
          if isempty(p.Results.names)
             self.names = cell(1,n);
+            for i = 1:n
+               self.names{i} = num2str(i);
+            end
          else
             if length(p.Results.names) == n
                self.names = p.Results.names;
@@ -139,6 +154,7 @@ classdef pointProcessCollection
 
          if nargin == 1
             for i = 1:n
+               % Default to inclusive window for each element
                self(i).array = self(i).array.setWindow();
             end
             return;
@@ -236,8 +252,8 @@ classdef pointProcessCollection
          
       end
       
-      % Alias to raster until I think of better plot override
       function [h,yOffset] = plot(self,varargin)
+         % Alias to raster until I think of better plot override
          [h,yOffset] = raster(self,varargin{:});
       end
       
@@ -252,6 +268,16 @@ classdef pointProcessCollection
          % TODO
          % intercept handle and yOffset
          % how to handle colors? perhaps intercept?
+         
+         % Should intercept window, propagate to all objects in all
+         % collections, same for psth, otherwise the pointProcess window is
+         % used
+         
+         % Should also be the option to plot ordered by collection first
+         % or by names first. ie all trials for one name grouped, followed
+         % by another, OR all names grouped (but different colors) in a collection,
+         % followed by another collection
+         
          % Input can be vector of pointProcessCollections, so we concatonate
          array = cat(2,self.array);
          [grp,ind] = self.getGrpInd(cat(2,self.names),cat(2,self.mask));
@@ -268,17 +294,21 @@ classdef pointProcessCollection
    end
    
    methods(Static, Access = private)
-      % Return index into all elements of collection that pass mask
-      % names : cell array of names from collection
-      % mask  : corresponding boolean mask from collection
-      %
-      % grp   : boolean indicating whether array object contains data
-      % ind   : cell array with the corresponding indices
-      %
-      % TODO
-      % error checking and boundary conditions
-      % need to modify of uniqueness is defined by names & locations
+      function validWindow = checkWindow(window,n)
+         % Should be analogous to method in pointProcess
+      end
+      
       function [grp,ind] = getGrpInd(names,mask)
+         % Return index into all elements of collection that pass mask
+         % names : cell array of names from collection
+         % mask  : corresponding boolean mask from collection
+         %
+         % grp   : boolean indicating whether array object contains data
+         % ind   : cell array with the corresponding indices
+         %
+         % TODO
+         % error checking and boundary conditions
+         % need to modify of uniqueness is defined by names & locations
          % Check dimensions
          uNames = unique(names);
          for i = 1:length(uNames)
