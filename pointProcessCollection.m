@@ -16,7 +16,7 @@
 % we want to be able to :
 % get psth with ability to mask names and array elements (trials)
 % get event counts in the same manner
-% 
+%
 % do all of the above after aligning
 % do all of the above in specific windows applied to all trials
 % do all of the above in windows applied to each trial
@@ -39,31 +39,36 @@
 
 % force everything to be a row or column
 % probably need to verify that names are all of the same type (strs or #)
+
+% SHOULD figure out how to pass in mask as a parameter. maybe the case that
+% you can't do it when there is more than one unique tAbs. The reason is I
+% would like to store an immutible mask_ so that I can restore it to when
+% the object was created?
+
 classdef pointProcessCollection
-%
+   %
    properties(GetAccess = public, SetAccess = private)
       % Cell array of names
       names
       
       % Array of pointProcess objects
       array
-      
    end
    
    properties(GetAccess = public, SetAccess = public)
       % Boolean mask
-      mask      
+      mask
    end
    
    % These dependent properties all apply the mask property
    properties (GetAccess = public, SetAccess = private, Dependent)
       % Minimum event time within window
       minTime
- 
+      
       % Maximum event time within window
       maxTime
    end
-
+   
    properties(GetAccess = public, SetAccess = private)
       % Absolute time that all objects in collection are referenced to
       tAbs;
@@ -76,12 +81,12 @@ classdef pointProcessCollection
          % TODO
          % enforce common timeUnit in array
          
-         % Allow array to be passed in without name
          if nargin == 0
             self = pointProcessCollection('array',pointProcess);
             return;
          end
          
+         % Allow array to be passed in without name
          if (nargin>=1) && isa(varargin{1},'pointProcess')
             self = pointProcessCollection('array',varargin{1},varargin{2:end});
             return;
@@ -91,15 +96,14 @@ classdef pointProcessCollection
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcessCollection constructor';
          p.addParamValue('array',pointProcess,@(x)isa(x,'pointProcess')); % NEED VALIDATOR
-         %p.addParamValue('mask',[],@(x)islogical(x)||isempty(x)); % NEED VALIDATOR
          p.parse(varargin{:});
-
+         
          % tAbs must match for each pointProcessCollection element, return
          % an object array, ordered by tAbs, when this is not the case
          array = p.Results.array(:)';
          tAbs = [array.tAbs];
          uTAbs = unique(tAbs);
-
+         
          for i = 1:length(uTAbs)
             ind = tAbs == uTAbs(i);
             
@@ -110,16 +114,7 @@ classdef pointProcessCollection
                self(1,i).names{j} = self(1,i).array(j).name;
             end
             
-            %if isempty(p.Results.mask)
-               self(1,i).mask = true(1,n);
-            %else
-            %   if length(p.Results.mask) == n
-            %      self(1,i).mask = p.Results.mask;
-            %   else
-            %      error('Bad mask size');
-            %   end
-            %end
-            
+            self(1,i).mask = true(1,n);
             self(1,i).tAbs = uTAbs(i);
          end
          
@@ -131,7 +126,7 @@ classdef pointProcessCollection
       % window can be [nObjs x 2], where each object window is set individually
       function self = setWindow(self,window)
          n = length(self);
-
+         
          if nargin == 1
             for i = 1:n
                % Default to inclusive window for each element
@@ -153,7 +148,7 @@ classdef pointProcessCollection
             self(i).array = self(i).array.setWindow(window(i,:));
          end
       end
-
+      
       %% Get Functions
       function minTime = get.minTime(self)
          array = cat(2,self.array);
@@ -168,7 +163,7 @@ classdef pointProcessCollection
          validTimes = cat(1,array(mask).maxTime);
          maxTime = max(validTimes);
       end
-
+      
       %% Functions
       % Align event times
       % sync can be a scalar, where it is applied to all objects
@@ -209,7 +204,7 @@ classdef pointProcessCollection
          %  default to window including all event times passing mask
          %  these will naturally all be seen through the individual
          %  pointProcess windows
-         %  
+         %
          %  passing in explicit window works as well, but this is applied
          %  on top of any windows in the individual pointProcess windows
          %  we should call setWindow() first!
@@ -238,13 +233,17 @@ classdef pointProcessCollection
       end
       
       % Inputs can be any of those accepted by plotRaster, except
-      % 
+      %
       % Like getPsth method, passing in a window goes through to raster
       % However, each object in collection has its own window
       % should inputParse and apply explicitly set window. Perhaps it is
       % best to do this in the pointProcess method (do the same for
       % getPsth)
       function [h,yOffset] = raster(self,varargin)
+         % Raster plot
+         % For a full description of the possible parameters, see the help
+         % for plotRaster
+        
          % TODO
          % intercept handle and yOffset
          % how to handle colors? perhaps intercept?
@@ -258,27 +257,48 @@ classdef pointProcessCollection
          % by another, OR all names grouped (but different colors) in a collection,
          % followed by another collection
          
+         % grpByName = true group by names
+         % gprbyTime
+         
+
+         % Intercept window parameter
+         p = inputParser;
+         p.KeepUnmatched= true;
+         p.FunctionName = 'pointProcessCollection raster method';
+         p.addParamValue('grpByName',true,@islogical);
+         p.addParamValue('handle',NaN,@ishandle);
+         p.addParamValue('yOffset',1,@isnumeric);
+         p.parse(varargin{:});
+         params = p.Unmatched; % passed through to pointProcess.raster
+
+         if p.Results.grpByName
+            [grp,ind] = self.getGrpByName();
+         else
+            [grp,ind] = self.getGrpByTime();
+         end
+         
          % Input can be vector of pointProcessCollections, so we concatonate
          array = cat(2,self.array);
-         [grp,ind] = self.getGrpInd(cat(2,self.names),cat(2,self.mask));
-         
+
          c = distinguishable_colors(sum(grp));
          
-         count = 1; h = NaN; yOffset = 1;
+         h = p.Results.handle;
+         yOffset = p.Results.yOffset;
+         count = 1;
          for i = find(grp)
             [h,yOffset] = array(ind{i}).raster('handle',h,'yOffset',...
-               yOffset,'grpColor',c(count,:),varargin{:});
+               yOffset,'grpColor',c(count,:),params);
             count = count + 1;
          end
       end
    end
    
-   methods(Static, Access = private)
+   methods(Access = private)
       function validWindow = checkWindow(window,n)
          % Should be analogous to method in pointProcess
       end
       
-      function [grp,ind] = getGrpInd(names,mask)
+      function [grp,ind] = getGrpByName(self)
          % Return index into all elements of collection that pass mask
          % names : cell array of names from collection
          % mask  : corresponding boolean mask from collection
@@ -290,11 +310,34 @@ classdef pointProcessCollection
          % error checking and boundary conditions
          % need to modify of uniqueness is defined by names & locations
          % Check dimensions
+         
+         names = cat(2,self.names);
+         mask = cat(2,self.mask);
          uNames = unique(names);
          for i = 1:length(uNames)
             ind{i} = find(strcmp(names(mask),uNames{i}));
             if ~isempty(ind{i})
                grp(i) = true;
+            end
+         end
+      end
+      function [grp,ind] = getGrpByTime(self)
+         % Return index into all elements of collection that pass mask
+         % names : cell array of names from collection
+         % mask  : corresponding boolean mask from collection
+         %
+         % grp   : boolean indicating whether array object contains data
+         % ind   : cell array with the corresponding indices
+         %
+         % TODO
+         % error checking and boundary conditions
+         % Check dimensions
+         n = 0;
+         for i = 1:length(self)
+            ind{i} = find(self(i).mask) + n;
+            if ~isempty(ind{i})
+               grp(i) = true;
+               n = n + length(self(i).mask);
             end
          end
       end
