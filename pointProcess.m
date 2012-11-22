@@ -19,10 +19,13 @@
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
+      % String identifier
       name;
       
+      % Cell array of information about process
       info;
       
+      % Cell array of strings labelling info elements
       infoLabels;
       
       % Vector of event times
@@ -45,19 +48,21 @@ classdef pointProcess
    
    % These dependent properties all apply the window property
    properties (GetAccess = public, SetAccess = private, Dependent)
-      % interevent interval representation
+      % Interevent interval representation
       intervals;
       
-      % counting process representation
+      % Counting process representation
       countingProcess;
       
       % # of events within window
       count;
       
-      % minimum event time within window
+      % rate % count/window Hz?
+      
+      % Minimum event time within window
       minTime;
       
-      % minimum event time within window
+      % Minimum event time within window
       maxTime;
    end
    
@@ -66,10 +71,13 @@ classdef pointProcess
       % perhaps this should be called tRelShift
       tAbsShift;
    end
-      
-   properties(GetAccess = private, SetAccess = immutable)
+   
+   properties(GetAccess = public, SetAccess = immutable)
       % Time that event times are relative to when object is constructed
       tAbs;
+   end
+      
+   properties(GetAccess = private, SetAccess = immutable)
       % Original [min max] time window of interest
       window_;
    end
@@ -378,8 +386,10 @@ classdef pointProcess
          if isempty(times)
             % need to return handle and yOffset if they exist?
          end
-
+         
+         try
          [h,yOffset] = plotRaster(times,p.Results,params);
+         catch, keyboard; end
          xlabel('Time');
          %xlabel(['Time (' self.timeUnits ')']);
       end
