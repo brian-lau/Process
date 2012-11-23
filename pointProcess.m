@@ -299,7 +299,7 @@ classdef pointProcess
          for i = 1:n
             if ~isnan(sync(i))
                % Always take all events to ensure we can recontruct original times
-               [tempTimes,tempWindow] = alignSpkTimes({self(i).times},sync(i),...
+               [tempTimes,tempWindow] = alignTimes({self(i).times},sync(i),...
                   'window',[min(self(i).times) max(self(i).times)]);
                self(i).times = tempTimes{1};
                self(i).window = self(i).window - sync(i);
@@ -347,8 +347,9 @@ classdef pointProcess
          stairs(countingProcess(:,1),countingProcess(:,2));
 
          axis tight;
-         xlabel(['Time (' self.timeUnits ')']);
-         ylabel('N_t');
+         xlabel('Time');
+         %xlabel(['Time (' self.timeUnits ')']);
+         ylabel('Cumulative events (N_t)');
       end
       
       function [h,yOffset] = raster(self,varargin)
@@ -385,9 +386,7 @@ classdef pointProcess
             % need to return handle and yOffset if they exist?
          end
          
-         try
          [h,yOffset] = plotRaster(times,p.Results,params);
-         catch, keyboard; end
          xlabel('Time');
          %xlabel(['Time (' self.timeUnits ')']);
       end
