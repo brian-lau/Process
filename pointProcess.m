@@ -385,7 +385,13 @@ classdef pointProcess
             % need to return handle and yOffset if they exist? TODO
          end
          
-         [h,yOffset] = plotRaster(times,p.Results,params);
+         if isfield(params,'treatAllAsGrps')
+            params = rmfield(params,'treatAllAsGrps');
+            %[h,yOffset] = plotRaster(times,'treatAllAsGrps',true,p.Results,params);
+            [h,yOffset] = plotRaster(times',p.Results,params);
+         else
+            [h,yOffset] = plotRaster(times,p.Results,params);
+         end
          xlabel('Time');
          %xlabel(['Time (' self.timeUnits ')']);
       end

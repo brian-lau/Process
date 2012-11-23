@@ -304,34 +304,83 @@ classdef pointProcessCollection
          p.KeepUnmatched= true;
          p.FunctionName = 'pointProcessCollection raster method';
          p.addParamValue('grpByName',true,@islogical);
+         p.addParamValue('grpByTime',true,@islogical);
          p.addParamValue('handle',NaN,@ishandle);
          p.addParamValue('yOffset',1,@isnumeric);
          p.addParamValue('grpColor',[],@iscell);
          p.parse(varargin{:});
          params = p.Unmatched; % passed through to pointProcess.raster
 
-         if p.Results.grpByName
-            [ind,nGrps] = self.getGrpByName();
+         %if p.Results.grpByName
+            [indName,nGrpsName] = self.getGrpByName();
+         %end
+         %if p.Results.grpByTime
+            [indTime,nGrpsTime] = self.getGrpByTime();
+         %end
+        % keyboard
+         
+         if xor(p.Results.grpByName,p.Results.grpByTime)
+            if p.Results.grpByName
+               ind = indName;
+               nGrps = nGrpsName;
+            else
+               ind = indTime;
+               nGrps = nGrpsTime;
+            end
+            
+            % Default colormap
+            if isempty(p.Results.grpColor)
+               grpColor = distinguishable_colors(nGrps);
+               grpColor = mat2cell(grpColor,ones(nGrps,1),3);
+            else
+               grpColor = p.Results.grpColor;
+            end
+         elseif and(p.Results.grpByName,p.Results.grpByTime)
+            temp = distinguishable_colors(nGrpsName);
+            temp = mat2cell(temp,ones(nGrpsName,1),3);
+            for i = 1:nGrpsTime
+               grpColor{i} = temp;
+            end
+            ind = indTime;
+            nGrps = nGrpsTime;
+            params.treatAllAsGrps = true;
+            %keyboard
          else
-            [ind,nGrps] = self.getGrpByTime();
+            ind = {self.mask};
+            nGrps = 1;
+            grpColor = {'k'};
          end
          
-         % Default colormap
-         if isempty(p.Results.grpColor)
-            grpColor = distinguishable_colors(nGrps);
-            grpColor = mat2cell(grpColor,ones(nGrps,1),3);
-         else
-            grpColor = p.Results.grpColor;
-         end
+%          if p.Results.grpByName
+%             [ind,nGrps] = self.getGrpByName();
+%          else
+%             [ind,nGrps] = self.getGrpByTime();
+%          end
+         
+         %keyboard
          
          h = p.Results.handle;
          yOffset = p.Results.yOffset;
          for i = 1:nGrps
             [h,yOffset] = self.array(ind{i}).raster('handle',h,'yOffset',...
                yOffset,'grpColor',grpColor{i},params);
-%               yOffset,'grpColor',c(i,:),params);
          end
       end
+      
+      %% Operators
+      function obj = plus(x,y)
+         % Addition
+         % TODO
+         % pointProcessCollection + pointProcess
+         % pointProcessCollection + pointProcessCollection
+         % should append to array after checking for identical elements
+      end
+      
+      function obj = minus(x,y)
+         % Subtraction
+         % TODO, not defined?
+      end
+      
    end
    
    methods(Access = private)
