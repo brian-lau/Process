@@ -57,6 +57,11 @@
 % deleteByName
 % deleteByTime
 % really should just merge the two delete('name','','time',[],'index')
+
+% overload + to append pointProcess, everything but mask is dependent,
+% should just work
+
+
 classdef pointProcessCollection
    %
    properties(GetAccess = public, SetAccess = private)
@@ -73,13 +78,14 @@ classdef pointProcessCollection
       % without modification for methods that delete or add pointProcesses
       % disadvantage is potential performance hit?
       index;
+      
       % Absolute time that the pointProcess objects in collection are referenced to
       % Should this be a dependent property? then the get method can sort
       % the data if necessary
       tAbs;
    end
    
-   properties(GetAccess = public, SetAccess = public)
+   properties(GetAccess = public, SetAccess = private)
       % Boolean mask
       % Need a method to check the consistency of this!
       mask;

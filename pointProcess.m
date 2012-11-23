@@ -1,6 +1,5 @@
 % point process class
 % simulation
-%
 % analyses
 % x intensity (basic)
 %  isi, 
@@ -15,13 +14,9 @@
 % representation
 %
 % when info values are themselves pointProcesses, should we check time
-% consistency?
+% consistency with the parent pointProcess?
 % Also, when we reset, should we reset events?
 %
-% probably need methods to get and set info & infoLabels?
-%   solved using container.Map dictionary
-% need to overload eq (==)
-
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
