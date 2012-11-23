@@ -60,11 +60,9 @@
 classdef pointProcessCollection
    %
    properties(GetAccess = public, SetAccess = private)
-      
       % Array of pointProcess objects
       array;
    end
-   
    
    properties (GetAccess = public, SetAccess = private, Dependent)
       % Cell array of names
@@ -83,6 +81,7 @@ classdef pointProcessCollection
    
    properties(GetAccess = public, SetAccess = public)
       % Boolean mask
+      % Need a method to check the consistency of this!
       mask;
    end
    
@@ -98,19 +97,20 @@ classdef pointProcessCollection
       maxTime;
    end
    
-%    properties(GetAccess = public, SetAccess = private)
-%       % Absolute time that the pointProcess objects in collection are referenced to
-%       % Should this be a dependent property? then the get method can sort
-%       % the data if necessary
-%       tAbs;
-%    end
-   
+   properties(GetAccess = private, SetAccess = immutable)
+      % Original mask
+      % won't work as immutible if delete and append methods included
+      mask_;
+   end
+     
    methods
       %% Constructor
       function self = pointProcessCollection(varargin)
          % Constructor, arguments are taken as name/value pairs
          % TODO
          % enforce common timeUnit in array
+         % check for redundant elements of array (need to overload == in
+         % pointProcess)
          
          if nargin == 0
             self = pointProcessCollection('array',pointProcess);
@@ -130,21 +130,14 @@ classdef pointProcessCollection
          p.addParamValue('mask',[],@islogical);
          p.parse(varargin{:});
          
-         array = p.Results.array(:)';
-         %[tAbs,ind] = sort([array.tAbs]);
-         %names = {array.name};
-         
+         array = p.Results.array(:)';         
          n = length(array);
          self.array = array;
-         %self.array = array(ind);
-         %self.names = names(ind);
          if numel(p.Results.mask) == n
             self.mask = p.Results.mask(:)';
          else
             self.mask = true(1,n);
          end            
-         %self.tAbs = tAbs;
-         
       end
       
       %% Set functions
@@ -182,7 +175,7 @@ classdef pointProcessCollection
       end
       
       function index = get.index(self)
-         uTAbs = unique(self.tAbs)
+         uTAbs = unique(self.tAbs);
          for i = 1:length(uTAbs)
             ind = self.tAbs == uTAbs(i);
             index(ind) = i;
@@ -231,11 +224,8 @@ classdef pointProcessCollection
       
       % Return pointProcess objects to state when they were created
       function self = reset(self)
-         n = length(self);
          % Should also reset mask?? Is that useful?
-         for i = 1:n
-            self(i).array = self(i).array.reset();
-         end
+         self.array.reset();
       end
       
       %
@@ -330,11 +320,9 @@ classdef pointProcessCollection
          
          h = p.Results.handle;
          yOffset = p.Results.yOffset;
-         count = 1;
          for i = 1:nGrps
             [h,yOffset] = self.array(ind{i}).raster('handle',h,'yOffset',...
-               yOffset,'grpColor',c(count,:),params);
-            count = count + 1;
+               yOffset,'grpColor',c(i,:),params);
          end
       end
    end
@@ -353,12 +341,10 @@ classdef pointProcessCollection
          % error checking and boundary conditions
          % need to modify of uniqueness is defined by names & locations
          % Check dimensions
-         
-
          uNames = unique(self.names);
          count = 1;
          for i = 1:length(uNames)
-            temp = find(strcmp(self.names(self.mask),uNames{i}));
+            temp = find( strcmp(self.names,uNames{i}) & self.mask );
             if ~isempty(temp)
                ind{count} = temp;
                count = count + 1;
@@ -380,11 +366,10 @@ classdef pointProcessCollection
          % TODO
          % error checking and boundary conditions
          % Check dimensions
-         
          uTAbs = unique(self.tAbs);
          count = 1;
          for i = 1:length(uTAbs)
-            temp = find(self.tAbs(self.mask)==uTAbs(i));
+            temp = find( (self.tAbs==uTAbs(i)) & self.mask );
             if ~isempty(temp)
                ind{count} = temp;
                count = count + 1;
