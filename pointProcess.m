@@ -22,12 +22,9 @@ classdef pointProcess
       % String identifier
       name;
       
-      % Cell array of information about process
+      % container.Map with information about process
       info;
-      
-      % Cell array of strings labelling info elements
-      infoLabels;
-      
+            
       % Vector of event times
       times;
       
@@ -86,22 +83,22 @@ classdef pointProcess
       %% Constructor
       function self = pointProcess(varargin)
          % Constructor, arguments are taken as name/value pairs
-         % name       - string identifier
-         % info       - cell array of information about process
-         % infoLabels - cell array of strings labelling info elements
-         % times      - Vector of event times
-         % marks      - Corresponding vector of magnitudes for "marked" process
-         % window     - Defaults to window that includes all event times,
-         %              If a smaller window is passed in, event times outside
-         %              the window will be DISCARDED.
-         % tAbs       - Time that event times are relative
+         % name     - string identifier
+         % info     - cell array of information about process
+         % infoKeys - cell array of strings labelling info elements
+         % times    - Vector of event times
+         % marks    - Corresponding vector of magnitudes for "marked" process
+         % window   - Defaults to window that includes all event times,
+         %            If a smaller window is passed in, event times outside
+         %            the window will be DISCARDED.
+         % tAbs     - Time that event times are relative
          
          p = inputParser;
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcess constructor';
          p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
          p.addParamValue('info',[],@iscell);
-         p.addParamValue('infoLabels',[],@iscell);
+         p.addParamValue('infoKeys',[],@iscell);
          p.addParamValue('times',NaN,@isnumeric);
          p.addParamValue('marks',[],@isnumeric); % NEED VALIDATOR
          p.addParamValue('window',[],@isnumeric); % NEED VALIDATOR
@@ -110,29 +107,19 @@ classdef pointProcess
          
          self.name = p.Results.name;
          
-         if ~isempty(p.Results.info)
-            self.info = p.Results.info(:);
+         if isempty(p.Results.info)
+            self.info = containers.Map();
          else
-            self.info = {};
-         end
-         
-         if ~isempty(p.Results.infoLabels)
-            infoLabels = p.Results.infoLabels(:);
-            if length(infoLabels) == length(self.info)
-               self.infoLabels = infoLabels;
-            else
-               error('Dimensions of infoLabels must match info');
-            end
-         else
-            if isempty(p.Results.info)
-               self.infoLabels = {};
-            else
-               for i = 1:length(self.info)
-                  self.infoLabels{i,1} = ['dim' num2str(i)];
+            if isempty(p.Results.infoKeys)
+               for i = 1:length(p.Results.info)
+                  infoKeys{i,1} = ['dim' num2str(i)];
                end
+            else
+               infoKeys = p.Results.infoKeys;
             end
+            self.info = containers.Map(infoKeys,p.Results.info);
          end
-         
+                  
          self.times = sort(p.Results.times(:));
          if ~isempty(p.Results.marks)
             marks = p.Results.marks(:);
