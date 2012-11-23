@@ -13,23 +13,28 @@
 %   eg., if events are coded as hours, min, seconds
 % This may not even really make sense, not really units, more
 % representation
-
+%
+% when info values are themselves pointProcesses, should we check time
+% consistency?
+%
 % probably need methods to get and set info & infoLabels?
+%   solved using container.Map dictionary
+% need to overload eq (==)
 
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
       % String identifier
-      name;
+      name
       
       % container.Map with information about process (requires Matlab 2008b)
-      info;
+      info
             
       % Vector of event times
-      times;
+      times
       
       % If marked point process, vector of associated magnitudes
-      marks;
+      marks
    end
    
    properties(GetAccess = public, SetAccess = public)
@@ -40,43 +45,44 @@ classdef pointProcess
       markUnits = 'none';
  
       % [min max] time window of interest
-      window;
+      window
    end
    
    % These dependent properties all apply the window property
    properties (GetAccess = public, SetAccess = private, Dependent)
       % Interevent interval representation
-      intervals;
+      intervals
       
       % Counting process representation
-      countingProcess;
+      countingProcess
       
       % # of events within window
-      count;
+      count
       
-      % rate % count/window Hz?
-      
-      % Minimum event time within window
-      minTime;
+      % count/window Hz?
+      rate 
       
       % Minimum event time within window
-      maxTime;
+      minTime
+      
+      % Minimum event time within window
+      maxTime
    end
    
    properties(GetAccess = private, SetAccess = private)
       % Time shift that returns times back to state when object was created
       % perhaps this should be called tRelShift
-      tAbsShift;
+      tAbsShift
    end
    
    properties(GetAccess = public, SetAccess = immutable)
       % Time that event times are relative to when object is constructed
-      tAbs;
+      tAbs
    end
       
    properties(GetAccess = private, SetAccess = immutable)
       % Original [min max] time window of interest
-      window_;
+      window_
    end
    
    methods
@@ -106,7 +112,9 @@ classdef pointProcess
          p.parse(varargin{:});
          
          self.name = p.Results.name;
+         self.times = sort(p.Results.times(:));
          
+         % Create a dictionary
          if isempty(p.Results.info)
             self.info = containers.Map();
          else
@@ -119,8 +127,8 @@ classdef pointProcess
             end
             self.info = containers.Map(infoKeys,p.Results.info);
          end
-                  
-         self.times = sort(p.Results.times(:));
+         
+         % Is this a marked point process?
          if ~isempty(p.Results.marks)
             marks = p.Results.marks(:);
             if sum(size(marks)==size(self.times)) == 2
@@ -136,13 +144,15 @@ classdef pointProcess
             if isempty(p.Results.window)
                self.window = [min(self.times) max(self.times)];
             else
-               self.window = p.Results.window;
+               %self.window = p.Results.window;
+               self.window = self.checkWindow(p.Results.window);
             end
          end
          
+         % Tuck away the original window for resetting
          self.window_ = self.window;
          
-         % Window the event times and corresponding marks
+         % Discard event times (& marks) outside of user-supplied window
          ind = (self.times>=self.window(1)) & (self.times<=self.window(2));
          self.times = self.times(ind);
          if ~isempty(self.marks)
@@ -160,9 +170,9 @@ classdef pointProcess
       
       %% Set functions
       function self = set.window(self,window)
-         % Set the window property
+         % Convenience method for setting the window property
          % Useful for error-checking public setting
-         % This method does not work for vector inputs, see setWindow()
+         % Does not work for vector inputs, see setWindow()
          self.window = self.checkWindow(window);
       end
      
@@ -185,7 +195,7 @@ classdef pointProcess
       end
       
       function self = setInclusiveWindow(self)
-         % Set windows to earliest and latest event
+         % Set windows to earliest and latest event times
          n = length(self);
          for i = 1:n
             self(i).window = [min(self(i).times) max(self(i).times)];
@@ -241,6 +251,16 @@ classdef pointProcess
          end
       end
       
+      function rate = get.rate(self)
+         % # of events within window
+         if any(isnan(self.window))
+            rate = 0;
+         else
+            times = getTimes(self,self.window);
+            rate = length(times{1}) / (self.window(2)-self.window(1));
+         end
+      end
+
       function minTime = get.minTime(self)
          % Minimum event time within window
          if any(isnan(self.window))
@@ -431,6 +451,14 @@ classdef pointProcess
          end
       end
    
+      function obj = eq(x,y)
+         % check name
+         % check info
+         % check times
+         % check marks
+         % check units ?
+         % check tAbs
+      end
    end
    
    methods(Static, Access = private)
