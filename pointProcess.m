@@ -370,7 +370,13 @@ classdef pointProcess
          p.addParamValue('grpBorder',false,@islogical);
          p.addParamValue('labelXAxis',false,@islogical);
          p.addParamValue('labelYAxis',false,@islogical);
-         p.parse(varargin{:});
+%                  keyboard
+%         if strcmp(varargin{end},'treatAllAsGrps')
+%            treatAllAsGrps = true;
+%            p.parse(varargin{1:end-1});
+%         else
+            p.parse(varargin{:});
+%         end
          params = p.Unmatched; % passed through to plotRaster
          
          % These window changes will NOT be persistent (not copied into object)
@@ -383,11 +389,12 @@ classdef pointProcess
          times = getTimes(self,window);
          if isempty(times)
             % need to return handle and yOffset if they exist? TODO
+         %elseif treatAllAsGrps
+         %   times = times';
          end
          
          if isfield(params,'treatAllAsGrps')
             params = rmfield(params,'treatAllAsGrps');
-            %[h,yOffset] = plotRaster(times,'treatAllAsGrps',true,p.Results,params);
             [h,yOffset] = plotRaster(times',p.Results,params);
          else
             [h,yOffset] = plotRaster(times,p.Results,params);

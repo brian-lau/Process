@@ -304,7 +304,7 @@ classdef pointProcessCollection
          p.KeepUnmatched= true;
          p.FunctionName = 'pointProcessCollection raster method';
          p.addParamValue('grpByName',true,@islogical);
-         p.addParamValue('grpByTime',true,@islogical);
+         p.addParamValue('grpByTime',false,@islogical);
          p.addParamValue('handle',NaN,@ishandle);
          p.addParamValue('yOffset',1,@isnumeric);
          p.addParamValue('grpColor',[],@iscell);
