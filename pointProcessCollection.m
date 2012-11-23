@@ -108,9 +108,9 @@ classdef pointProcessCollection
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcessCollection constructor';
          p.addParamValue('array',pointProcess,@(x)isa(x,'pointProcess'));
+         p.addParamValue('mask',[],@islogical);
          p.parse(varargin{:});
          
-         %keyboard
          array = p.Results.array(:)';
          [tAbs,ind] = sort([array.tAbs]);
          names = {array.name};
@@ -118,28 +118,12 @@ classdef pointProcessCollection
          n = length(array);
          self.array = array(ind);
          self.names = names(ind);
-         self.mask = true(1,n);
+         if numel(p.Results.mask) == n
+            self.mask = p.Results.mask(:)';
+         else
+            self.mask = true(1,n);
+         end            
          self.tAbs = tAbs;
-
-%          % tAbs must match for each pointProcessCollection element, return
-%          % an object array, ordered by tAbs, when this is not the case
-%          array = p.Results.array(:)';
-%          tAbs = [array.tAbs];
-%          uTAbs = unique(tAbs);
-%          
-%          for i = 1:length(uTAbs)
-%             ind = tAbs == uTAbs(i);
-%             
-%             self(1,i).array = array(ind);
-%             
-%             n = length(array(ind));
-%             for j = 1:n
-%                self(1,i).names{j} = self(1,i).array(j).name;
-%             end
-%             
-%             self(1,i).mask = true(1,n);
-%             self(1,i).tAbs = uTAbs(i);
-%          end
          
       end
       
@@ -175,21 +159,15 @@ classdef pointProcessCollection
       %% Get Functions
       function count = get.count(self)
          % # of pointProcess objects in collection
-         %mask = cat(2,self.mask);
          count = sum(self.mask);
       end
       function minTime = get.minTime(self)
-         %array = cat(2,self.array);
-         %mask = cat(2,self.mask);
-         %validTimes = cat(1,array(mask).minTime);
+
          validTimes = self.array(self.mask).minTime;
          minTime = min(validTimes);
       end
       
       function maxTime = get.maxTime(self)
-         %array = cat(2,self.array);
-         %mask = cat(2,self.mask);
-         %validTimes = cat(1,array(mask).maxTime);
          validTimes = self.array(self.mask).maxTime;
          maxTime = max(validTimes);
       end
@@ -303,13 +281,11 @@ classdef pointProcessCollection
          p.parse(varargin{:});
          params = p.Unmatched; % passed through to pointProcess.raster
 
-         keyboard
          if p.Results.grpByName
-            ind = self.getGrpByName();
+            [ind,nGrps] = self.getGrpByName();
          else
-            ind = self.getGrpByTime();
+            [ind,nGrps] = self.getGrpByTime();
          end
-         nGrps = length(ind);
          
          % Input can be vector of pointProcessCollections, so we concatonate
          array = cat(2,self.array);
@@ -333,12 +309,9 @@ classdef pointProcessCollection
          % Should be analogous to method in pointProcess
       end
       
-      function ind = getGrpByName(self)
+      function [ind,nGrps] = getGrpByName(self)
          % Return index into all elements of collection that pass mask
-         % names : cell array of names from collection
-         % mask  : corresponding boolean mask from collection
          %
-         % grp   : boolean indicating whether array object contains data
          % ind   : cell array with the corresponding indices
          %
          % TODO
@@ -356,23 +329,17 @@ classdef pointProcessCollection
                count = count + 1;
             end
          end
-         
-%          names = cat(2,self.names);
-%          mask = cat(2,self.mask);
-%          uNames = unique(names);
-%          for i = 1:length(uNames)
-%             ind{i} = find(strcmp(names(mask),uNames{i}));
-%             if ~isempty(ind{i})
-%                grp(i) = true;
-%             end
-%          end
+         if ~exist('ind','var')
+            nGrps = 0;
+            ind = {};
+         else
+            nGrps = length(ind);
+         end         
       end
-      function ind = getGrpByTime(self)
+      
+      function [ind,nGrps] = getGrpByTime(self)
          % Return index into all elements of collection that pass mask
-         % names : cell array of names from collection
-         % mask  : corresponding boolean mask from collection
          %
-         % grp   : boolean indicating whether array object contains data
          % ind   : cell array with the corresponding indices
          %
          % TODO
@@ -388,15 +355,13 @@ classdef pointProcessCollection
                count = count + 1;
             end
          end
-         
-%          n = 0;
-%          for i = 1:length(self)
-%             ind{i} = find(self(i).mask) + n;
-%             if ~isempty(ind{i})
-%                grp(i) = true;
-%                n = n + length(self(i).mask);
-%             end
-%          end
+         if ~exist('ind','var')
+            nGrps = 0;
+            ind = {};
+         else
+            nGrps = length(ind);
+         end         
       end
+      
    end
 end
