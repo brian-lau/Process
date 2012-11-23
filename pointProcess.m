@@ -22,7 +22,7 @@ classdef pointProcess
       % String identifier
       name;
       
-      % container.Map with information about process
+      % container.Map with information about process (requires Matlab 2008b)
       info;
             
       % Vector of event times
@@ -139,6 +139,7 @@ classdef pointProcess
                self.window = p.Results.window;
             end
          end
+         
          self.window_ = self.window;
          
          % Window the event times and corresponding marks
@@ -162,15 +163,9 @@ classdef pointProcess
          % Set the window property
          % Useful for error-checking public setting
          % This method does not work for vector inputs, see setWindow()
-         if numel(window) ~= 2
-            error('window must be a 2-element vector');
-         end
-         if window(1) > window(2)
-            error('First element of window must be less than second');
-         end
-         self.window = window;
+         self.window = self.checkWindow(window);
       end
-      
+     
       function self = setWindow(self,window)
          % Set the window property
          % window can be [1 x 2], where all objects are set to the same window
