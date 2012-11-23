@@ -16,6 +16,7 @@
 %
 % when info values are themselves pointProcesses, should we check time
 % consistency?
+% Also, when we reset, should we reset events?
 %
 % probably need methods to get and set info & infoLabels?
 %   solved using container.Map dictionary
@@ -451,13 +452,34 @@ classdef pointProcess
          end
       end
    
-      function obj = eq(x,y)
-         % check name
-         % check info
-         % check times
-         % check marks
+      function bool = eq(x,y)
+         % Equality
+         if isa(x,'pointProcess') && isa(y,'pointProcess')
+            if strcmp(x.name,y.name) ~= true
+               bool = false;
+               return;
+            elseif x.info ~= y.info
+               bool = false;
+               return;
+            elseif numel(x.times) ~= numel(y.times)
+               bool = false;
+               return;
+            elseif any(x.times ~= y.times)
+               bool = false;
+               return;
+            elseif any(x.marks ~= y.marks)
+               bool = false;
+               return;
+            elseif x.tAbs ~= y.tAbs
+               bool = false;
+               return;
+            else
+               bool = true;
+            end
+         else
+            error('Eq is not defined for inputs');
+         end
          % check units ?
-         % check tAbs
       end
    end
    
