@@ -140,7 +140,6 @@ classdef pointProcess
             if isempty(p.Results.window)
                self.window = [min(self.times) max(self.times)];
             else
-               %self.window = p.Results.window;
                self.window = self.checkWindow(p.Results.window);
             end
          end
@@ -383,7 +382,7 @@ classdef pointProcess
          
          times = getTimes(self,window);
          if isempty(times)
-            % need to return handle and yOffset if they exist?
+            % need to return handle and yOffset if they exist? TODO
          end
          
          [h,yOffset] = plotRaster(times,p.Results,params);
@@ -448,8 +447,10 @@ classdef pointProcess
    
       function bool = eq(x,y)
          % Equality
+         % TODO
+         % check units ?
          if isa(x,'pointProcess') && isa(y,'pointProcess')
-            
+            % Handle case where one input is a vector
             nX = numel(x);
             nY = numel(y);
             if nX < nY
@@ -496,7 +497,6 @@ classdef pointProcess
          else
             error('Eq is not defined for inputs');
          end
-         % check units ?
       end
    end
    
