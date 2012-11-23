@@ -53,15 +53,32 @@
 % setMaskByAbsTime
 % setMaskByInfo
 % what is the mask logic? AND, OR? or should this be specified as param
-%
+% 
+% deleteByName
+% deleteByTime
+% really should just merge the two delete('name','','time',[],'index')
 classdef pointProcessCollection
    %
    properties(GetAccess = public, SetAccess = private)
-      % Cell array of names
-      names;
       
       % Array of pointProcess objects
       array;
+   end
+   
+   
+   properties (GetAccess = public, SetAccess = private, Dependent)
+      % Cell array of names
+      names;
+
+      % Counter of unique tAbs
+      % Not sure this needs to be dependent? Advantage is that it will work
+      % without modification for methods that delete or add pointProcesses
+      % disadvantage is potential performance hit?
+      index;
+      % Absolute time that the pointProcess objects in collection are referenced to
+      % Should this be a dependent property? then the get method can sort
+      % the data if necessary
+      tAbs;
    end
    
    properties(GetAccess = public, SetAccess = public)
@@ -71,20 +88,22 @@ classdef pointProcessCollection
    
    % These dependent properties all apply the mask property
    properties (GetAccess = public, SetAccess = private, Dependent)
-      % # of pointProcess objects in collection
+      % # of masked pointProcess objects in collection
       count;
       
-      % Minimum event time within window
+      % Minimum event time within window of masked pointProcesses
       minTime;
       
-      % Maximum event time within window
+      % Maximum event time within window of masked pointProcesses
       maxTime;
    end
    
-   properties(GetAccess = public, SetAccess = private)
-      % Absolute time that all objects in collection are referenced to
-      tAbs;
-   end
+%    properties(GetAccess = public, SetAccess = private)
+%       % Absolute time that the pointProcess objects in collection are referenced to
+%       % Should this be a dependent property? then the get method can sort
+%       % the data if necessary
+%       tAbs;
+%    end
    
    methods
       %% Constructor
@@ -112,18 +131,19 @@ classdef pointProcessCollection
          p.parse(varargin{:});
          
          array = p.Results.array(:)';
-         [tAbs,ind] = sort([array.tAbs]);
-         names = {array.name};
+         %[tAbs,ind] = sort([array.tAbs]);
+         %names = {array.name};
          
          n = length(array);
-         self.array = array(ind);
-         self.names = names(ind);
+         self.array = array;
+         %self.array = array(ind);
+         %self.names = names(ind);
          if numel(p.Results.mask) == n
             self.mask = p.Results.mask(:)';
          else
             self.mask = true(1,n);
          end            
-         self.tAbs = tAbs;
+         %self.tAbs = tAbs;
          
       end
       
@@ -157,17 +177,35 @@ classdef pointProcessCollection
       end
       
       %% Get Functions
+      function names = get.names(self)
+         names = {self.array.name};
+      end
+      
+      function index = get.index(self)
+         uTAbs = unique(self.tAbs)
+         for i = 1:length(uTAbs)
+            ind = self.tAbs == uTAbs(i);
+            index(ind) = i;
+         end
+      end
+      
+      function tAbs = get.tAbs(self)
+         tAbs = [self.array.tAbs];
+      end
+      
       function count = get.count(self)
-         % # of pointProcess objects in collection
+         % # of masked pointProcess objects in collection
          count = sum(self.mask);
       end
+      
       function minTime = get.minTime(self)
-
+         % Minimum event time within window of masked pointProcesses
          validTimes = self.array(self.mask).minTime;
          minTime = min(validTimes);
       end
       
       function maxTime = get.maxTime(self)
+         % Maximum event time within window of masked pointProcesses
          validTimes = self.array(self.mask).maxTime;
          maxTime = max(validTimes);
       end
@@ -286,10 +324,7 @@ classdef pointProcessCollection
          else
             [ind,nGrps] = self.getGrpByTime();
          end
-         
-         % Input can be vector of pointProcessCollections, so we concatonate
-         array = cat(2,self.array);
-         
+                  
          % Default colormap
          c = distinguishable_colors(nGrps);
          
@@ -297,7 +332,7 @@ classdef pointProcessCollection
          yOffset = p.Results.yOffset;
          count = 1;
          for i = 1:nGrps
-            [h,yOffset] = array(ind{i}).raster('handle',h,'yOffset',...
+            [h,yOffset] = self.array(ind{i}).raster('handle',h,'yOffset',...
                yOffset,'grpColor',c(count,:),params);
             count = count + 1;
          end
