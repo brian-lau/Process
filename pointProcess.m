@@ -355,7 +355,7 @@ classdef pointProcess
       function [h,yOffset] = raster(self,varargin)
          % Raster plot
          % For a full description of the possible parameters, see the help
-         % for plotRaster
+         % for <a href="matlab:help('plotRaster')">plotRaster</a>
 
          % Intercept window parameter
          n = length(self);
@@ -449,6 +449,29 @@ classdef pointProcess
       function bool = eq(x,y)
          % Equality
          if isa(x,'pointProcess') && isa(y,'pointProcess')
+            
+            nX = numel(x);
+            nY = numel(y);
+            if nX < nY
+               if nX ~= 1
+                  error('At least one argument must have numel==1');
+               else
+                  for i = 1:nY
+                     bool(i) = x == y(i);
+                  end
+                  return;
+               end
+            elseif nY < nX
+               if nY ~= 1
+                  error('At least one argument must have numel==1');
+               else
+                  for i = 1:nX
+                     bool(i) = y == x(i);
+                  end
+                  return;
+               end
+            end
+            
             if strcmp(x.name,y.name) ~= true
                bool = false;
                return;
