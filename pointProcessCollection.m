@@ -61,6 +61,8 @@
 % overload + to append pointProcess, everything but mask is dependent,
 % should just work
 
+% sorting is irrelevant for the methods. with dependent properties, we
+% always know where to index.
 
 classdef pointProcessCollection
    %
@@ -74,14 +76,9 @@ classdef pointProcessCollection
       names;
 
       % Counter of unique tAbs
-      % Not sure this needs to be dependent? Advantage is that it will work
-      % without modification for methods that delete or add pointProcesses
-      % disadvantage is potential performance hit?
       index;
       
       % Absolute time that the pointProcess objects in collection are referenced to
-      % Should this be a dependent property? then the get method can sort
-      % the data if necessary
       tAbs;
    end
    
@@ -286,10 +283,7 @@ classdef pointProcessCollection
          % Raster plot
          % For a full description of the possible parameters, see the help
          % for plotRaster
-        
-         % TODO
-         % how to handle colors? perhaps intercept?
-         
+                 
          % Should intercept window, propagate to all objects in all
          % collections, same for psth, otherwise the pointProcess window is
          % used
@@ -312,6 +306,7 @@ classdef pointProcessCollection
          p.addParamValue('grpByName',true,@islogical);
          p.addParamValue('handle',NaN,@ishandle);
          p.addParamValue('yOffset',1,@isnumeric);
+         p.addParamValue('grpColor',[],@iscell);
          p.parse(varargin{:});
          params = p.Unmatched; % passed through to pointProcess.raster
 
@@ -320,15 +315,21 @@ classdef pointProcessCollection
          else
             [ind,nGrps] = self.getGrpByTime();
          end
-                  
+         
          % Default colormap
-         c = distinguishable_colors(nGrps);
+         if isempty(p.Results.grpColor)
+            grpColor = distinguishable_colors(nGrps);
+            grpColor = mat2cell(grpColor,ones(nGrps,1),3);
+         else
+            grpColor = p.Results.grpColor;
+         end
          
          h = p.Results.handle;
          yOffset = p.Results.yOffset;
          for i = 1:nGrps
             [h,yOffset] = self.array(ind{i}).raster('handle',h,'yOffset',...
-               yOffset,'grpColor',c(i,:),params);
+               yOffset,'grpColor',grpColor{i},params);
+%               yOffset,'grpColor',c(i,:),params);
          end
       end
    end
