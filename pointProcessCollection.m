@@ -107,28 +107,39 @@ classdef pointProcessCollection
          p = inputParser;
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcessCollection constructor';
-         p.addParamValue('array',pointProcess,@(x)isa(x,'pointProcess')); % NEED VALIDATOR
+         p.addParamValue('array',pointProcess,@(x)isa(x,'pointProcess'));
          p.parse(varargin{:});
          
-         % tAbs must match for each pointProcessCollection element, return
-         % an object array, ordered by tAbs, when this is not the case
+         %keyboard
          array = p.Results.array(:)';
-         tAbs = [array.tAbs];
-         uTAbs = unique(tAbs);
+         [tAbs,ind] = sort([array.tAbs]);
+         names = {array.name};
          
-         for i = 1:length(uTAbs)
-            ind = tAbs == uTAbs(i);
-            
-            self(1,i).array = array(ind);
-            
-            n = length(array(ind));
-            for j = 1:n
-               self(1,i).names{j} = self(1,i).array(j).name;
-            end
-            
-            self(1,i).mask = true(1,n);
-            self(1,i).tAbs = uTAbs(i);
-         end
+         n = length(array);
+         self.array = array(ind);
+         self.names = names(ind);
+         self.mask = true(1,n);
+         self.tAbs = tAbs;
+
+%          % tAbs must match for each pointProcessCollection element, return
+%          % an object array, ordered by tAbs, when this is not the case
+%          array = p.Results.array(:)';
+%          tAbs = [array.tAbs];
+%          uTAbs = unique(tAbs);
+%          
+%          for i = 1:length(uTAbs)
+%             ind = tAbs == uTAbs(i);
+%             
+%             self(1,i).array = array(ind);
+%             
+%             n = length(array(ind));
+%             for j = 1:n
+%                self(1,i).names{j} = self(1,i).array(j).name;
+%             end
+%             
+%             self(1,i).mask = true(1,n);
+%             self(1,i).tAbs = uTAbs(i);
+%          end
          
       end
       
@@ -164,20 +175,22 @@ classdef pointProcessCollection
       %% Get Functions
       function count = get.count(self)
          % # of pointProcess objects in collection
-         mask = cat(2,self.mask);
-         count = sum(mask);
+         %mask = cat(2,self.mask);
+         count = sum(self.mask);
       end
       function minTime = get.minTime(self)
-         array = cat(2,self.array);
-         mask = cat(2,self.mask);
-         validTimes = cat(1,array(mask).minTime);
+         %array = cat(2,self.array);
+         %mask = cat(2,self.mask);
+         %validTimes = cat(1,array(mask).minTime);
+         validTimes = self.array(self.mask).minTime;
          minTime = min(validTimes);
       end
       
       function maxTime = get.maxTime(self)
-         array = cat(2,self.array);
-         mask = cat(2,self.mask);
-         validTimes = cat(1,array(mask).maxTime);
+         %array = cat(2,self.array);
+         %mask = cat(2,self.mask);
+         %validTimes = cat(1,array(mask).maxTime);
+         validTimes = self.array(self.mask).maxTime;
          maxTime = max(validTimes);
       end
       
@@ -290,22 +303,24 @@ classdef pointProcessCollection
          p.parse(varargin{:});
          params = p.Unmatched; % passed through to pointProcess.raster
 
+         keyboard
          if p.Results.grpByName
-            [grp,ind] = self.getGrpByName();
+            ind = self.getGrpByName();
          else
-            [grp,ind] = self.getGrpByTime();
+            ind = self.getGrpByTime();
          end
+         nGrps = length(ind);
          
          % Input can be vector of pointProcessCollections, so we concatonate
          array = cat(2,self.array);
          
          % Default colormap
-         c = distinguishable_colors(sum(grp));
+         c = distinguishable_colors(nGrps);
          
          h = p.Results.handle;
          yOffset = p.Results.yOffset;
          count = 1;
-         for i = find(grp)
+         for i = 1:nGrps
             [h,yOffset] = array(ind{i}).raster('handle',h,'yOffset',...
                yOffset,'grpColor',c(count,:),params);
             count = count + 1;
@@ -318,7 +333,7 @@ classdef pointProcessCollection
          % Should be analogous to method in pointProcess
       end
       
-      function [grp,ind] = getGrpByName(self)
+      function ind = getGrpByName(self)
          % Return index into all elements of collection that pass mask
          % names : cell array of names from collection
          % mask  : corresponding boolean mask from collection
@@ -331,17 +346,28 @@ classdef pointProcessCollection
          % need to modify of uniqueness is defined by names & locations
          % Check dimensions
          
-         names = cat(2,self.names);
-         mask = cat(2,self.mask);
-         uNames = unique(names);
+
+         uNames = unique(self.names);
+         count = 1;
          for i = 1:length(uNames)
-            ind{i} = find(strcmp(names(mask),uNames{i}));
-            if ~isempty(ind{i})
-               grp(i) = true;
+            temp = find(strcmp(self.names(self.mask),uNames{i}));
+            if ~isempty(temp)
+               ind{count} = temp;
+               count = count + 1;
             end
          end
+         
+%          names = cat(2,self.names);
+%          mask = cat(2,self.mask);
+%          uNames = unique(names);
+%          for i = 1:length(uNames)
+%             ind{i} = find(strcmp(names(mask),uNames{i}));
+%             if ~isempty(ind{i})
+%                grp(i) = true;
+%             end
+%          end
       end
-      function [grp,ind] = getGrpByTime(self)
+      function ind = getGrpByTime(self)
          % Return index into all elements of collection that pass mask
          % names : cell array of names from collection
          % mask  : corresponding boolean mask from collection
@@ -352,14 +378,25 @@ classdef pointProcessCollection
          % TODO
          % error checking and boundary conditions
          % Check dimensions
-         n = 0;
-         for i = 1:length(self)
-            ind{i} = find(self(i).mask) + n;
-            if ~isempty(ind{i})
-               grp(i) = true;
-               n = n + length(self(i).mask);
+         
+         uTAbs = unique(self.tAbs);
+         count = 1;
+         for i = 1:length(uTAbs)
+            temp = find(self.tAbs(self.mask)==uTAbs(i));
+            if ~isempty(temp)
+               ind{count} = temp;
+               count = count + 1;
             end
          end
+         
+%          n = 0;
+%          for i = 1:length(self)
+%             ind{i} = find(self(i).mask) + n;
+%             if ~isempty(ind{i})
+%                grp(i) = true;
+%                n = n + length(self(i).mask);
+%             end
+%          end
       end
    end
 end
