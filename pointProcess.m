@@ -402,7 +402,7 @@ classdef pointProcess
          % Intercept window parameter
          p = inputParser;
          p.KeepUnmatched= true;
-         p.FunctionName = 'pointProcess raster method';
+         p.FunctionName = 'pointProcess psth method';
          p.addRequired('bw', @isnumeric);
          p.parse(bw,varargin{:});
          params = p.Unmatched; % passed through to getPsth

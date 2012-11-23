@@ -44,29 +44,41 @@
 % you can't do it when there is more than one unique tAbs. The reason is I
 % would like to store an immutible mask_ so that I can restore it to when
 % the object was created?
-
+%
+% Since an array of Collections is constructed ordered in time, we will
+% need methods to add (insert) and delete collections
+%
+% Need general methods:
+% setMaskByName
+% setMaskByAbsTime
+% setMaskByInfo
+% what is the mask logic? AND, OR? or should this be specified as param
+%
 classdef pointProcessCollection
    %
    properties(GetAccess = public, SetAccess = private)
       % Cell array of names
-      names
+      names;
       
       % Array of pointProcess objects
-      array
+      array;
    end
    
    properties(GetAccess = public, SetAccess = public)
       % Boolean mask
-      mask
+      mask;
    end
    
    % These dependent properties all apply the mask property
    properties (GetAccess = public, SetAccess = private, Dependent)
+      % # of pointProcess objects in collection
+      count;
+      
       % Minimum event time within window
-      minTime
+      minTime;
       
       % Maximum event time within window
-      maxTime
+      maxTime;
    end
    
    properties(GetAccess = public, SetAccess = private)
@@ -150,6 +162,11 @@ classdef pointProcessCollection
       end
       
       %% Get Functions
+      function count = get.count(self)
+         % # of pointProcess objects in collection
+         mask = cat(2,self.mask);
+         count = sum(mask);
+      end
       function minTime = get.minTime(self)
          array = cat(2,self.array);
          mask = cat(2,self.mask);
@@ -186,6 +203,7 @@ classdef pointProcessCollection
       % Return pointProcess objects to state when they were created
       function self = reset(self)
          n = length(self);
+         % Should also reset mask?? Is that useful?
          for i = 1:n
             self(i).array = self(i).array.reset();
          end
@@ -245,7 +263,6 @@ classdef pointProcessCollection
          % for plotRaster
         
          % TODO
-         % intercept handle and yOffset
          % how to handle colors? perhaps intercept?
          
          % Should intercept window, propagate to all objects in all
@@ -257,8 +274,10 @@ classdef pointProcessCollection
          % by another, OR all names grouped (but different colors) in a collection,
          % followed by another collection
          
-         % grpByName = true group by names
-         % gprbyTime
+         % grpByName - group by names, ie all trials for one name grouped,
+         %             followed by another, etc. This is alphabetical.
+         %             Otherwise gprbyTime, all names grouped by collection
+         % 
          
 
          % Intercept window parameter
@@ -279,7 +298,8 @@ classdef pointProcessCollection
          
          % Input can be vector of pointProcessCollections, so we concatonate
          array = cat(2,self.array);
-
+         
+         % Default colormap
          c = distinguishable_colors(sum(grp));
          
          h = p.Results.handle;
