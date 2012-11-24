@@ -311,13 +311,8 @@ classdef pointProcessCollection
          p.parse(varargin{:});
          params = p.Unmatched; % passed through to pointProcess.raster
 
-         %if p.Results.grpByName
-            [indName,nGrpsName] = self.getGrpByName();
-         %end
-         %if p.Results.grpByTime
-            [indTime,nGrpsTime] = self.getGrpByTime();
-         %end
-        % keyboard
+         [indName,nGrpsName] = self.getGrpByName();
+         [indTime,nGrpsTime] = self.getGrpByTime();
          
          if xor(p.Results.grpByName,p.Results.grpByTime)
             if p.Results.grpByName
@@ -335,8 +330,10 @@ classdef pointProcessCollection
             else
                grpColor = p.Results.grpColor;
             end
-            treatAllAsGrps = false;
          elseif and(p.Results.grpByName,p.Results.grpByTime)
+            % Names should be distinct colors, and for each name, the plot
+            % is ordered by tAbs
+            % TODO accept user input colormap
             temp = distinguishable_colors(nGrpsName);
             temp = mat2cell(temp,ones(nGrpsName,1),3);
             for i = 1:nGrpsTime
@@ -344,36 +341,26 @@ classdef pointProcessCollection
             end
             ind = indTime;
             nGrps = nGrpsTime;
-            treatAllAsGrps = true;
          else
+            % No grouping
             ind = {self.mask};
             nGrps = 1;
             grpColor = {'k'};
-            treatAllAsGrps = false;
          end
-         
-%          if p.Results.grpByName
-%             [ind,nGrps] = self.getGrpByName();
-%          else
-%             [ind,nGrps] = self.getGrpByTime();
-%          end
-         
-        % keyboard
-         
          
          h = p.Results.handle;
          yOffset = p.Results.yOffset;
          for i = 1:nGrps
-            %self.array(ind{i})
             if 1%~treatAllAsGrps
-            [h,yOffset] = raster(self.array(ind{i}),'handle',h,'yOffset',...
-               yOffset,'grpColor',grpColor{i},params);
+               % This works without modification because I create an
+               % explicit colormap
+               [h,yOffset] = raster(self.array(ind{i}),'handle',h,'yOffset',...
+                  yOffset,'grpColor',grpColor{i},params);
             else
-            [h,yOffset] = raster(self.array(ind{i})','handle',h,'yOffset',...
-               yOffset,'grpColor',grpColor{i},params);
+               % Transpose
+               [h,yOffset] = raster(self.array(ind{i})','handle',h,'yOffset',...
+                  yOffset,'grpColor',grpColor{i},params);
             end
-%             [h,yOffset] = self.array(ind{i}).raster('handle',h,'yOffset',...
-%                yOffset,'grpColor',grpColor{i},params);
          end
       end
       

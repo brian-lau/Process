@@ -31,6 +31,7 @@
 %   - for nDimes = 1, should handle row and column differently, ie,
 %     getTimes should return a row if row inputs, and a column if column
 %     inputs
+%   THIS is done for getTimes now, need to check ALL METHODS
 %
 classdef pointProcess
 %
@@ -390,13 +391,7 @@ classdef pointProcess
          p.addParamValue('grpBorder',false,@islogical);
          p.addParamValue('labelXAxis',false,@islogical);
          p.addParamValue('labelYAxis',false,@islogical);
-%                  keyboard
-%         if strcmp(varargin{end},'treatAllAsGrps')
-%            treatAllAsGrps = true;
-%            p.parse(varargin{1:end-1});
-%         else
-            p.parse(varargin{:});
-%         end
+         p.parse(varargin{:});
          params = p.Unmatched; % passed through to plotRaster
          
          % These window changes will NOT be persistent (not copied into object)
@@ -406,19 +401,12 @@ classdef pointProcess
             window = self.checkWindow(cat(1,self.window),n);
          end
          
-         times = getTimes(self,window)
+         times = getTimes(self,window);
          if isempty(times)
             % need to return handle and yOffset if they exist? TODO
-         %elseif treatAllAsGrps
-         %   times = times';
          end
          
-         %if isfield(params,'treatAllAsGrps')
-         %   params = rmfield(params,'treatAllAsGrps');
-         %   [h,yOffset] = plotRaster(times',p.Results,params);
-         %else
-            [h,yOffset] = plotRaster(times,p.Results,params);
-         %end
+         [h,yOffset] = plotRaster(times,p.Results,params);
          xlabel('Time');
          %xlabel(['Time (' self.timeUnits ')']);
       end
