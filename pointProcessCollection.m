@@ -335,6 +335,7 @@ classdef pointProcessCollection
             else
                grpColor = p.Results.grpColor;
             end
+            treatAllAsGrps = false;
          elseif and(p.Results.grpByName,p.Results.grpByTime)
             temp = distinguishable_colors(nGrpsName);
             temp = mat2cell(temp,ones(nGrpsName,1),3);
@@ -343,12 +344,12 @@ classdef pointProcessCollection
             end
             ind = indTime;
             nGrps = nGrpsTime;
-            params.treatAllAsGrps = true;
-            %keyboard
+            treatAllAsGrps = true;
          else
             ind = {self.mask};
             nGrps = 1;
             grpColor = {'k'};
+            treatAllAsGrps = false;
          end
          
 %          if p.Results.grpByName
@@ -357,13 +358,22 @@ classdef pointProcessCollection
 %             [ind,nGrps] = self.getGrpByTime();
 %          end
          
-         %keyboard
+        % keyboard
+         
          
          h = p.Results.handle;
          yOffset = p.Results.yOffset;
          for i = 1:nGrps
-            [h,yOffset] = self.array(ind{i}).raster('handle',h,'yOffset',...
+            %self.array(ind{i})
+            if 1%~treatAllAsGrps
+            [h,yOffset] = raster(self.array(ind{i}),'handle',h,'yOffset',...
                yOffset,'grpColor',grpColor{i},params);
+            else
+            [h,yOffset] = raster(self.array(ind{i})','handle',h,'yOffset',...
+               yOffset,'grpColor',grpColor{i},params);
+            end
+%             [h,yOffset] = self.array(ind{i}).raster('handle',h,'yOffset',...
+%                yOffset,'grpColor',grpColor{i},params);
          end
       end
       

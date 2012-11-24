@@ -14,8 +14,23 @@
 % representation
 %
 % when info values are themselves pointProcesses, should we check time
-% consistency with the parent pointProcess?
+% consistency with the parent pointProcess? ie tAbs?
 % Also, when we reset, should we reset events?
+%
+% currently tAbs field is used for resetting and for consistency in
+% pointProcessCollections. Should there be a boolean to determine whether
+% to add tAbs to all operations when handling an array of pointProcesses???
+%
+% any way to ensure column or row outputs when someone creates matrices of
+% pointProcesses?
+% As many of the methods as possible for pointProcess will handle array
+% calls. Since there isn't clearly a way to enforce how users create these
+% arrays (ie, they can be multidimensional), we should enforce some sanity
+% in the methods?
+%   - for nDims> 2, always concatonate in a consistent way? issue warning
+%   - for nDimes = 1, should handle row and column differently, ie,
+%     getTimes should return a row if row inputs, and a column if column
+%     inputs
 %
 classdef pointProcess
 %
@@ -213,7 +228,12 @@ classdef pointProcess
          for i = 1:n
             ind = (self(i).times>=window(i,1)) & (self(i).times<=window(i,2));
             windowedTimes{i,1} = self(i).times(ind);
-         end         
+         end
+         
+         if isrow(self)
+            windowedTimes = windowedTimes';
+         end
+         
       end
       
       function intervals = get.intervals(self)
@@ -386,19 +406,19 @@ classdef pointProcess
             window = self.checkWindow(cat(1,self.window),n);
          end
          
-         times = getTimes(self,window);
+         times = getTimes(self,window)
          if isempty(times)
             % need to return handle and yOffset if they exist? TODO
          %elseif treatAllAsGrps
          %   times = times';
          end
          
-         if isfield(params,'treatAllAsGrps')
-            params = rmfield(params,'treatAllAsGrps');
-            [h,yOffset] = plotRaster(times',p.Results,params);
-         else
+         %if isfield(params,'treatAllAsGrps')
+         %   params = rmfield(params,'treatAllAsGrps');
+         %   [h,yOffset] = plotRaster(times',p.Results,params);
+         %else
             [h,yOffset] = plotRaster(times,p.Results,params);
-         end
+         %end
          xlabel('Time');
          %xlabel(['Time (' self.timeUnits ')']);
       end
@@ -469,7 +489,7 @@ classdef pointProcess
             if nX < nY
                if nX ~= 1
                   error('At least one argument must have numel==1');
-               else
+               else % y is a vector
                   for i = 1:nY
                      bool(i) = x == y(i);
                   end
@@ -478,7 +498,7 @@ classdef pointProcess
             elseif nY < nX
                if nY ~= 1
                   error('At least one argument must have numel==1');
-               else
+               else % x is a vector
                   for i = 1:nX
                      bool(i) = y == x(i);
                   end
