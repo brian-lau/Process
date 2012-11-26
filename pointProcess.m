@@ -33,6 +33,28 @@
 %     inputs
 %   THIS is done for getTimes now, need to check ALL METHODS
 %
+%
+% HANDLE versus VALUE class
+%
+% externalize getTimes, in fact, if we clean up alignTimes a bit, the
+% method could just call this function. GetTimes is a misleading name,
+% suggests that I am just returning times property. Should be
+% getWindowedTimes or something more descriptive. Should allow sync, window
+% inputs
+%
+% How to ensure we can always load the data? How to save? as struct and use
+% savObj and loadObj methods
+%   started by including version property
+%
+% what about multiple windows? should all the dependent properties become
+% cell arrays??? that seems ugly. Does this mean that the only way to
+% create a triggered PSTH is via collection object?
+% A triggered analysis (multiple events) seems to be a basic requirement of
+% pointProcess?
+%
+%
+
+
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
@@ -90,6 +112,9 @@ classdef pointProcess
    properties(GetAccess = public, SetAccess = immutable)
       % Time that event times are relative to when object is constructed
       tAbs
+      
+      %
+      version = 0.1;
    end
       
    properties(GetAccess = private, SetAccess = immutable)
@@ -118,8 +143,8 @@ classdef pointProcess
          p.addParamValue('info',[],@iscell);
          p.addParamValue('infoKeys',[],@iscell);
          p.addParamValue('times',NaN,@isnumeric);
-         p.addParamValue('marks',[],@isnumeric); % NEED VALIDATOR
-         p.addParamValue('window',[],@isnumeric); % NEED VALIDATOR
+         p.addParamValue('marks',[],@isnumeric);
+         p.addParamValue('window',[],@isnumeric);
          p.addParamValue('tAbs',0,@isnumeric);
          p.parse(varargin{:});
          
@@ -227,6 +252,8 @@ classdef pointProcess
          end
          
          for i = 1:n
+            %% call alignTimes here? What is the advantage? error-checking?
+            % extra parameters???
             ind = (self(i).times>=window(i,1)) & (self(i).times<=window(i,2));
             windowedTimes{i,1} = self(i).times(ind);
          end
@@ -319,10 +346,10 @@ classdef pointProcess
          for i = 1:n
             if ~isnan(sync(i))
                % Always take all events to ensure we can recontruct original times
-               [tempTimes,tempWindow] = alignTimes({self(i).times},sync(i),...
-                  'window',[min(self(i).times) max(self(i).times)]);
+               [tempTimes,tempWindow] = alignTimes({self(i).times},'sync',sync(i),...
+                  'window',[min(self(i).times) max(self(i).times)],'alignWindow',true);
                self(i).times = tempTimes{1};
-               self(i).window = self(i).window - sync(i);
+               self(i).window = tempWindow;%self(i).window - sync(i);
                %self(i).window = tempWindow; % same as setInclusiveWindow
                self(i).tAbsShift = sync(i);
             end
@@ -374,8 +401,8 @@ classdef pointProcess
       
       function [h,yOffset] = raster(self,varargin)
          % Raster plot
-         % For a full description of the possible parameters, see the help
-         % for <a href="matlab:help('plotRaster')">plotRaster</a>
+         % For a full description of the possible parameters, see 
+         % <a href="matlab:help('plotRaster')">plotRaster</a>
 
          % Intercept window parameter
          n = length(self);
@@ -404,15 +431,25 @@ classdef pointProcess
          times = getTimes(self,window);
          if isempty(times)
             % need to return handle and yOffset if they exist? TODO
-         end
-         
-         [h,yOffset] = plotRaster(times,p.Results,params);
-         xlabel('Time');
-         %xlabel(['Time (' self.timeUnits ')']);
+            if isfield(params,'h')
+               h = params.h;
+            end
+            if isfield(params,'yOffset')
+               yOffset = params.yOffset;
+            end
+         else
+            [h,yOffset] = plotRaster(times,p.Results,params);
+            xlabel('Time');
+            %xlabel(['Time (' self.timeUnits ')']);
+         end         
       end
       
       function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
-         % Get intensity representation
+         % Get history-independent intensity representation
+         % For a full description of the possible parameters, see 
+         % <a href="matlab:help('getPsth')">getPsth</a>
+
+         % TODO
          % When timeUnits functioning, need to reconcile units with bandwidth
          % here
          
@@ -425,7 +462,6 @@ classdef pointProcess
          params = p.Unmatched; % passed through to getPsth
          
          n = length(self);
-
          % These window changes will NOT be persistent (not copied into object)
          if isfield(params,'window')
             window = self.checkWindow(params.window,n);
@@ -435,6 +471,10 @@ classdef pointProcess
 
          times = getTimes(self,window);         
          [r,t,r_sem,count,reps] = getPsth(times,p.Results.bw,params);
+      end
+      
+      function self = rescale(self)
+         % Time rescale
       end
       
       %% Operators

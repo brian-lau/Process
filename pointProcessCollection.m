@@ -100,6 +100,11 @@ classdef pointProcessCollection
       maxTime;
    end
    
+   properties(GetAccess = public, SetAccess = immutable)
+      %
+      version
+   end
+   
    properties(GetAccess = private, SetAccess = immutable)
       % Original mask
       % won't work as immutible if delete and append methods included
