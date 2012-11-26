@@ -33,12 +33,7 @@
 % reset (reset spike times back to original data)
 %       origspikeTimes = spikeTimes + tAbs
 
-% NEED VALIDATOR FOR UNIQUE NAMES?? or should we be able to put many
-% instances of the same name? eg., trials into collection, there is no
-% sense of ordering here?
-
-% force everything to be a row or column
-% probably need to verify that names are all of the same type (strs or #)
+% force everything to be a row (default to treating everything separately)
 
 % SHOULD figure out how to pass in mask as a parameter. maybe the case that
 % you can't do it when there is more than one unique tAbs. The reason is I
@@ -55,7 +50,7 @@
 % what is the mask logic? AND, OR? or should this be specified as param
 % 
 % deleteByName
-% deleteByTime
+% deleteByTime (tAbs)
 % really should just merge the two delete('name','','time',[],'index')
 
 % overload + to append pointProcess, everything but mask is dependent,
@@ -63,6 +58,9 @@
 
 % sorting is irrelevant for the methods. with dependent properties, we
 % always know where to index.
+%
+% maybe should allow a setting that uses copies of coll.array.info for each
+% tAbs? to save space
 
 classdef pointProcessCollection
    %
@@ -102,7 +100,7 @@ classdef pointProcessCollection
    
    properties(GetAccess = public, SetAccess = immutable)
       %
-      version
+      version = 0;
    end
    
    properties(GetAccess = private, SetAccess = immutable)
@@ -278,8 +276,6 @@ classdef pointProcessCollection
          [h,yOffset] = raster(self,varargin{:});
       end
       
-      % Inputs can be any of those accepted by plotRaster, except
-      %
       % Like getPsth method, passing in a window goes through to raster
       % However, each object in collection has its own window
       % should inputParse and apply explicitly set window. Perhaps it is

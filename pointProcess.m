@@ -253,7 +253,8 @@ classdef pointProcess
 
          for i = 1:n
             % TODO call alignTimes here? What is the advantage? error-checking?
-            % extra parameters??? Just consistency?
+            % extra parameters??? Just consistency? What about non-zero
+            % sync? This seems pretty useful
 %            ind = (self(i).times>=window(i,1)) & (self(i).times<=window(i,2));
 %            windowedTimes{i,1} = self(i).times(ind);
              windowedTimes(i,1) = alignTimes({self(i).times},'sync',0,...
