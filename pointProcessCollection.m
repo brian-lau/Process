@@ -141,6 +141,7 @@ classdef pointProcessCollection
          array = p.Results.array(:)';         
          n = length(array);
          self.array = array;
+         % TODO setMask method
          if numel(p.Results.mask) == n
             self.mask = p.Results.mask(:)';
          else

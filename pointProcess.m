@@ -238,7 +238,7 @@ classdef pointProcess
          end
       end
       
-      %% Get Functions
+      %% Get Functions      
       function windowedTimes = getTimes(self,window)
          % Apply window to times
          % Note that windowedTimes is a cell array
@@ -250,18 +250,19 @@ classdef pointProcess
          else
             window = self.checkWindow(cat(1,self.window),n);
          end
-         
+
          for i = 1:n
-            %% call alignTimes here? What is the advantage? error-checking?
-            % extra parameters???
-            ind = (self(i).times>=window(i,1)) & (self(i).times<=window(i,2));
-            windowedTimes{i,1} = self(i).times(ind);
+            % TODO call alignTimes here? What is the advantage? error-checking?
+            % extra parameters??? Just consistency?
+%            ind = (self(i).times>=window(i,1)) & (self(i).times<=window(i,2));
+%            windowedTimes{i,1} = self(i).times(ind);
+             windowedTimes(i,1) = alignTimes({self(i).times},'sync',0,...
+                'window',window(i,:),'alignWindow',true);
          end
          
          if isrow(self)
             windowedTimes = windowedTimes';
-         end
-         
+         end         
       end
       
       function intervals = get.intervals(self)
@@ -331,6 +332,8 @@ classdef pointProcess
          % sync can be [nObjs x 1], where each object is aligned individually
          % NaN elements in sync skipped
          % The window property is also aligned
+         % For a full description, see 
+         % <a href="matlab:help('alignTimes')">alignTimes</a>
          
          % Automatically reset
          self = self.undoAlign();
@@ -349,8 +352,7 @@ classdef pointProcess
                [tempTimes,tempWindow] = alignTimes({self(i).times},'sync',sync(i),...
                   'window',[min(self(i).times) max(self(i).times)],'alignWindow',true);
                self(i).times = tempTimes{1};
-               self(i).window = tempWindow;%self(i).window - sync(i);
-               %self(i).window = tempWindow; % same as setInclusiveWindow
+               self(i).window = tempWindow;
                self(i).tAbsShift = sync(i);
             end
          end
@@ -404,22 +406,23 @@ classdef pointProcess
          % For a full description of the possible parameters, see 
          % <a href="matlab:help('plotRaster')">plotRaster</a>
 
-         % Intercept window parameter
          n = length(self);
          if n < 10
-            ms = 6;
+           ms = 6;
          else
-            ms = 3;
+           ms = 3;
          end
          p = inputParser;
          p.KeepUnmatched= true;
          p.FunctionName = 'pointProcess raster method';
+         % Intercept some parameters to override defaults
          p.addParamValue('markerSize',ms,@isnumeric);
          p.addParamValue('grpBorder',false,@islogical);
          p.addParamValue('labelXAxis',false,@islogical);
          p.addParamValue('labelYAxis',false,@islogical);
          p.parse(varargin{:});
-         params = p.Unmatched; % passed through to plotRaster
+         % Passed through to plotRaster
+         params = p.Unmatched;
          
          % These window changes will NOT be persistent (not copied into object)
          if isfield(params,'window')
@@ -452,14 +455,15 @@ classdef pointProcess
          % TODO
          % When timeUnits functioning, need to reconcile units with bandwidth
          % here
+         % check output when vector input is a row
          
-         % Intercept window parameter
          p = inputParser;
          p.KeepUnmatched= true;
          p.FunctionName = 'pointProcess psth method';
          p.addRequired('bw', @isnumeric);
          p.parse(bw,varargin{:});
-         params = p.Unmatched; % passed through to getPsth
+         % Passed through to getPsth
+         params = p.Unmatched;
          
          n = length(self);
          % These window changes will NOT be persistent (not copied into object)
@@ -469,7 +473,7 @@ classdef pointProcess
             window = self.checkWindow(cat(1,self.window),n);
          end
 
-         times = getTimes(self,window);         
+         times = getTimes(self,window);
          [r,t,r_sem,count,reps] = getPsth(times,p.Results.bw,params);
       end
       
@@ -496,7 +500,7 @@ classdef pointProcess
          % Subtraction
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
-            % should delete the times from object
+            % should delete the common times from object
          elseif isa(x,'pointProcess') && isnumeric(y)
             obj = align(x,y);
          elseif isa(y,'pointProcess') && isnumeric(x)
