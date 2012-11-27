@@ -120,12 +120,9 @@ classdef pointProcess
 
    % These dependent properties all apply the window property
    properties (GetAccess = public, SetAccess = private, Dependent = true, Transient = true)
-      %
-      windowedTimes
-      %
       
-%       % Interevent interval representation
-%       intervals
+%      % Interevent interval representation
+%      intervals
       
 %       % Counting process representation
 %       countingProcess
@@ -141,6 +138,17 @@ classdef pointProcess
       
       % Minimum event time within window
       maxTime
+   end
+   
+   % Also window-dependent, but only calculated on window change
+   % Possibly set Hidden = true, or define display method to hide?
+   % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
+   properties (SetAccess = private)
+      %
+      windowedTimes
+      
+      %
+      windowIndex
    end
    
    properties(GetAccess = private, SetAccess = private)
@@ -189,7 +197,7 @@ classdef pointProcess
          p.parse(varargin{:});
          
          self.name = p.Results.name;
-         self.times = sort(p.Results.times(:));
+         self.times = sort(p.Results.times(:)');
          
          % Create a dictionary
          if isempty(p.Results.info)
@@ -206,6 +214,7 @@ classdef pointProcess
          end
          
          % Is this a marked point process?
+         % TODO sort marks according to times!!!
          if ~isempty(p.Results.marks)
             marks = p.Results.marks(:);
             if sum(size(marks)==size(self.times)) == 2
@@ -224,7 +233,7 @@ classdef pointProcess
                self.window = self.checkWindow(p.Results.window);
             end
          end
-         
+
          % Tuck away the original window for resetting
          self.window_ = self.window;
          
@@ -250,25 +259,27 @@ classdef pointProcess
          % Useful for error-checking public setting
          % Does not work for vector inputs, see setWindow()
          self.window = self.checkWindow(window,size(window,1));
+         
+         self.windowedTimes = getTimes(self,self.window);
       end
      
-      function self = setWindow(self,window)
-         % Set the window property
-         % window can be [1 x 2], where all objects are set to the same window
-         % window can be [nObjs x 2], where each object window is set individually
-
-         % Reset to default windows
-         if nargin == 1
-            self = self.setInclusiveWindow();
-            return
-         end
-
-         n = length(self);
-         window = self.checkWindow(window,n);         
-         for i = 1:n
-            self(i).window = window(i,:);
-         end         
-      end
+%       function self = setWindow(self,window)
+%          % Set the window property
+%          % window can be [1 x 2], where all objects are set to the same window
+%          % window can be [nObjs x 2], where each object window is set individually
+% 
+%          % Reset to default windows
+%          if nargin == 1
+%             self = self.setInclusiveWindow();
+%             return
+%          end
+% 
+%          n = length(self);
+%          window = self.checkWindow(window,n);         
+%          for i = 1:n
+%             self(i).window = window(i,:);
+%          end         
+%       end
       
       function self = setInclusiveWindow(self)
          % Set windows to earliest and latest event times
@@ -281,14 +292,17 @@ classdef pointProcess
       %% Get Functions
       function windowedTimes = getTimes(self,window)
          n = length(self);
-         
+
          if n == 1
             nWindow = size(window,1);
             window = self.checkWindow(window,nWindow);
+            windowedTimes = cell(nWindow,1);
             for i = 1:nWindow
                % TODO What about non-zero sync? This seems pretty useful
-               windowedTimes(i,1) = alignTimes({self.times},'sync',0,...
-                  'window',window(i,:),'alignWindow',true);
+               %windowedTimes(i) = alignTimes({self.times},'sync',0,...
+               %   'window',window(i,:),'alignWindow',true);
+               ind = (self.times>=window(i,1)) & (self.times<=window(i,2));
+               windowedTimes{i,1} = self.times(ind);
             end
          else
             
@@ -322,7 +336,7 @@ classdef pointProcess
 %       end
       
       function windowedTimes = get.windowedTimes(self)
-         windowedTimes = getTimes(self,self.window);
+         windowedTimes = self.windowedTimes;%getTimes(self,self.window);
       end
       
 %       function intervals = get.intervals(self)
@@ -331,12 +345,8 @@ classdef pointProcess
 % %         intervals = diff(times{1});
 %          
 %          times = self.windowedTimes;
-%          if iscell(times)
-%             for i = 1:length(times)
-%                intervals{i,1} = diff(times{i});
-%             end
-%          else
-%             intervals = diff(times);
+%          for i = 1:length(times)
+%             intervals{i,1} = diff(times{i});
 %          end
 %       end
       
@@ -355,13 +365,7 @@ classdef pointProcess
 %       end
       
       function count = get.count(self)
-         % # of events within window
-%          if any(isnan(self.window))
-%             count = 0;
-%          else
-%             times = getTimes(self,self.window);
-%             count = length(times{1});
-%          end
+         % # of events within windows
          times = self.windowedTimes;
          for i = 1:length(times)
             count(i,1) = length(times{i});
@@ -369,13 +373,7 @@ classdef pointProcess
       end
       
       function rate = get.rate(self)
-         % # of events within window
-%          if any(isnan(self.window))
-%             rate = 0;
-%          else
-%             times = getTimes(self,self.window);
-%             rate = length(times{1}) / (self.window(2)-self.window(1));
-%          end
+         % # of events within windows
          times = self.windowedTimes;
          for i = 1:length(times)
             rate(i,1) = length(times{i}) / (self.window(2,i)-self.window(1,i));
@@ -383,13 +381,7 @@ classdef pointProcess
       end
 
       function minTime = get.minTime(self)
-%          % Minimum event time within window
-%          if any(isnan(self.window))
-%             minTime = NaN;
-%          else
-%             times = getTimes(self,self.window);
-%             minTime = min(times{1});
-%          end
+         % Minimum event time within windows
          times = self.windowedTimes;
          for i = 1:length(times)
             minTime(i,1) = min(times{i});
@@ -397,13 +389,7 @@ classdef pointProcess
       end
       
       function maxTime = get.maxTime(self)
-         % Maximum event time within window
-%          if any(isnan(self.window))
-%             maxTime = NaN;
-%          else
-%             times = getTimes(self,self.window);
-%             maxTime = max(times{1});
-%          end
+         % Maximum event time within windows
          times = self.windowedTimes;
          for i = 1:length(times)
             maxTime(i,1) = max(times{i});
@@ -512,11 +498,13 @@ classdef pointProcess
          % These window changes will NOT be persistent (not copied into object)
          if isfield(params,'window')
             window = self.checkWindow(params.window,n);
+         elseif n == 1
+            times = self.windowedTimes;
          else
             window = self.checkWindow(cat(1,self.window),n);
          end
          
-         times = getTimes(self,window);
+         %times = getTimes(self,window);
          if isempty(times)
             % need to return handle and yOffset if they exist? TODO
             if isfield(params,'h')
