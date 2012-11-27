@@ -52,7 +52,41 @@
 % A triggered analysis (multiple events) seems to be a basic requirement of
 % pointProcess?
 %
+% One possibility is to enhance alignTimes to accept multiple window and
+% sync inputs. Then properties like window, intervals, count, rate, etc
+% would need to handle this. However, what if we also want the spike times
+% within all these windows? currently we never see these, since the
+% properties implicitly window the times and discard them. 
+% Perhaps we need a property that transiently stores the windowed times?
+% windowedTimes. This maybe even useful by itself, since all methods see
+% things through the window anyways? Avoid calling getTimes?
+%   If I do the above, should also be a method to "break" a multiply
+%   windowed pointProcess into a collection?
 %
+% Another possibility is to define a method that handles multiple windows
+% and returns a pointProcessCollection. This could get messy very quickly,
+% for example, if there are huge numbers of spikes (reverse correlation),
+% we are essentially replicating data. Handle class doesn't seem to solve
+% this, because each element would have the same times but different
+% windows. Maybe can get away using a dirty bit?
+% Not sure the former method save much, for huge numbers of spikes, the
+% dependent properties will spend a lot of time doing stuff? Move isis and
+% counting process to be methods?
+%
+% Final possibility is to allow multiple windows, but only pass back the
+% spike array in the method. That is, it doesn't alter the object. Then
+% what's the point of the object???!!
+%
+% let's be concrete.
+% one neuron
+% let's say 10 orientations presented randomly every 20 ms
+%
+% want to be able to do
+%
+% spk.align([ori[1]times,ori[2]times... ori[10]times,'window',[-.1 0])
+% spk.rate should return a comma separated list of rates for each window
+%
+% 
 
 
 classdef pointProcess
@@ -76,19 +110,25 @@ classdef pointProcess
       timeUnits = 'seconds';
 
       % This is likely just for info, not useful to convert
+      % perhaps unnecessary or nonsense if marks is itself an array of
+      % objects?
       markUnits = 'none';
  
       % [min max] time window of interest
       window
    end
-   
+
    % These dependent properties all apply the window property
-   properties (GetAccess = public, SetAccess = private, Dependent)
-      % Interevent interval representation
-      intervals
+   properties (GetAccess = public, SetAccess = private, Dependent = true, Transient = true)
+      %
+      windowedTimes
+      %
       
-      % Counting process representation
-      countingProcess
+%       % Interevent interval representation
+%       intervals
+      
+%       % Counting process representation
+%       countingProcess
       
       % # of events within window
       count
@@ -209,14 +249,13 @@ classdef pointProcess
          % Convenience method for setting the window property
          % Useful for error-checking public setting
          % Does not work for vector inputs, see setWindow()
-         self.window = self.checkWindow(window);
+         self.window = self.checkWindow(window,size(window,1));
       end
      
       function self = setWindow(self,window)
          % Set the window property
          % window can be [1 x 2], where all objects are set to the same window
          % window can be [nObjs x 2], where each object window is set individually
-         n = length(self);
 
          % Reset to default windows
          if nargin == 1
@@ -224,6 +263,7 @@ classdef pointProcess
             return
          end
 
+         n = length(self);
          window = self.checkWindow(window,n);         
          for i = 1:n
             self(i).window = window(i,:);
@@ -237,94 +277,138 @@ classdef pointProcess
             self(i).window = [min(self(i).times) max(self(i).times)];
          end
       end
-      
-      %% Get Functions      
+            
+      %% Get Functions
       function windowedTimes = getTimes(self,window)
-         % Apply window to times
-         % Note that windowedTimes is a cell array
          n = length(self);
          
-         % These window changes will NOT be persistent (not copied into object)
-         if nargin == 2
-            window = self.checkWindow(window,n);
+         if n == 1
+            nWindow = size(window,1);
+            window = self.checkWindow(window,nWindow);
+            for i = 1:nWindow
+               % TODO What about non-zero sync? This seems pretty useful
+               windowedTimes(i,1) = alignTimes({self.times},'sync',0,...
+                  'window',window(i,:),'alignWindow',true);
+            end
          else
-            window = self.checkWindow(cat(1,self.window),n);
+            
          end
-
-         for i = 1:n
-            % TODO call alignTimes here? What is the advantage? error-checking?
-            % extra parameters??? Just consistency? What about non-zero
-            % sync? This seems pretty useful
-%            ind = (self(i).times>=window(i,1)) & (self(i).times<=window(i,2));
-%            windowedTimes{i,1} = self(i).times(ind);
-             windowedTimes(i,1) = alignTimes({self(i).times},'sync',0,...
-                'window',window(i,:),'alignWindow',true);
-         end
-         
-         if isrow(self)
-            windowedTimes = windowedTimes';
-         end         
+      end
+%       function windowedTimes = getTimes(self,window)
+%          % Apply window to times
+%          % Note that windowedTimes is a cell array
+%          n = length(self);
+%          keyboard
+%          % These window changes will NOT be persistent (not copied into object)
+%          if nargin == 2
+%             window = self.checkWindow(window,n);
+%          else
+%             window = self.checkWindow(cat(1,self.window),n);
+%          end
+% 
+%          for i = 1:n
+%             % TODO call alignTimes here? What is the advantage? error-checking?
+%             % extra parameters??? Just consistency? What about non-zero
+%             % sync? This seems pretty useful
+% %            ind = (self(i).times>=window(i,1)) & (self(i).times<=window(i,2));
+% %            windowedTimes{i,1} = self(i).times(ind);
+%              windowedTimes(i,1) = alignTimes({self(i).times},'sync',0,...
+%                 'window',window(i,:),'alignWindow',true);
+%          end
+%          
+%          if isrow(self)
+%             windowedTimes = windowedTimes';
+%          end         
+%       end
+      
+      function windowedTimes = get.windowedTimes(self)
+         windowedTimes = getTimes(self,self.window);
       end
       
-      function intervals = get.intervals(self)
-         % Interevent interval representation
-         times = getTimes(self,self.window);
-         intervals = diff(times{1});
-      end
+%       function intervals = get.intervals(self)
+%          % Interevent interval representation
+% %         times = getTimes(self,self.window);
+% %         intervals = diff(times{1});
+%          
+%          times = self.windowedTimes;
+%          if iscell(times)
+%             for i = 1:length(times)
+%                intervals{i,1} = diff(times{i});
+%             end
+%          else
+%             intervals = diff(times);
+%          end
+%       end
       
-      function countingProcess = get.countingProcess(self)
-         % Counting process representation
-         if any(isnan(self.window))
-            countingProcess = [NaN NaN];
-         else
-            window = self.window;
-            times = getTimes(self,window);
-            times = times{1};
-            count = cumsum(ones(size(times)));
-            tStart = max(-inf,unique(min(times)));
-            countingProcess = [[tStart;times] , [0;count]];
-         end
-      end
+%       function countingProcess = get.countingProcess(self)
+%          % Counting process representation
+%          if any(isnan(self.window))
+%             countingProcess = [NaN NaN];
+%          else
+%             window = self.window;
+%             times = getTimes(self,window);
+%             times = times{1};
+%             count = cumsum(ones(size(times)));
+%             tStart = max(-inf,unique(min(times)));
+%             countingProcess = [[tStart;times] , [0;count]];
+%          end
+%       end
       
       function count = get.count(self)
          % # of events within window
-         if any(isnan(self.window))
-            count = 0;
-         else
-            times = getTimes(self,self.window);
-            count = length(times{1});
+%          if any(isnan(self.window))
+%             count = 0;
+%          else
+%             times = getTimes(self,self.window);
+%             count = length(times{1});
+%          end
+         times = self.windowedTimes;
+         for i = 1:length(times)
+            count(i,1) = length(times{i});
          end
       end
       
       function rate = get.rate(self)
          % # of events within window
-         if any(isnan(self.window))
-            rate = 0;
-         else
-            times = getTimes(self,self.window);
-            rate = length(times{1}) / (self.window(2)-self.window(1));
+%          if any(isnan(self.window))
+%             rate = 0;
+%          else
+%             times = getTimes(self,self.window);
+%             rate = length(times{1}) / (self.window(2)-self.window(1));
+%          end
+         times = self.windowedTimes;
+         for i = 1:length(times)
+            rate(i,1) = length(times{i}) / (self.window(2,i)-self.window(1,i));
          end
       end
 
       function minTime = get.minTime(self)
-         % Minimum event time within window
-         if any(isnan(self.window))
-            minTime = NaN;
-         else
-            times = getTimes(self,self.window);
-            minTime = min(times{1});
+%          % Minimum event time within window
+%          if any(isnan(self.window))
+%             minTime = NaN;
+%          else
+%             times = getTimes(self,self.window);
+%             minTime = min(times{1});
+%          end
+         times = self.windowedTimes;
+         for i = 1:length(times)
+            minTime(i,1) = min(times{i});
          end
       end
       
       function maxTime = get.maxTime(self)
          % Maximum event time within window
-         if any(isnan(self.window))
-            maxTime = NaN;
-         else
-            times = getTimes(self,self.window);
-            maxTime = max(times{1});
+%          if any(isnan(self.window))
+%             maxTime = NaN;
+%          else
+%             times = getTimes(self,self.window);
+%             maxTime = max(times{1});
+%          end
+         times = self.windowedTimes;
+         for i = 1:length(times)
+            maxTime(i,1) = max(times{i});
          end
-      end
+     end
 
       %% Functions
       function self = align(self,sync,varargin)
@@ -512,7 +596,7 @@ classdef pointProcess
       end
    
       function bool = eq(x,y)
-         % Equality
+         % Equality (==, isequal)
          % TODO
          % check units ?
          if isa(x,'pointProcess') && isa(y,'pointProcess')
@@ -566,25 +650,16 @@ classdef pointProcess
       end
    end
    
-   methods(Static, Access = private)
+   methods(Static, Access = public)
+      function validOffset = checkOffset()
+         % Validate sync, 
+      end
+      
       function validWindow = checkWindow(window,n)
-         % Validate window, and replicate if necessary
          if nargin == 1
             n = 1;
          end
-         
-         if numel(window) == 2
-            window = window(:)';
-            window = repmat(window,n,1);
-         end
-         if size(window,1) ~= n
-            error('window must be [1 x 2] or [nObjs x 2]');
-         end
-         if any(window(:,1)>window(:,2))
-            error('First element of window must be less than second');
-         end
-         
-         validWindow = window;
+         validWindow = checkWindow(window,n);
       end
    end
    
