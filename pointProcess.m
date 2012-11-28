@@ -63,19 +63,30 @@
 %   If I do the above, should also be a method to "break" a multiply
 %   windowed pointProcess into a collection?
 %
-% Another possibility is to define a method that handles multiple windows
-% and returns a pointProcessCollection. This could get messy very quickly,
-% for example, if there are huge numbers of spikes (reverse correlation),
-% we are essentially replicating data. Handle class doesn't seem to solve
-% this, because each element would have the same times but different
-% windows. Maybe can get away using a dirty bit?
-% Not sure the former method save much, for huge numbers of spikes, the
-% dependent properties will spend a lot of time doing stuff? Move isis and
-% counting process to be methods?
+% Went with the above in a branch
+% Works nicely, but an explicit decision should be made about how to handle
+% arrays of pointProcesses. When a method is called on an array (not the
+% default getters or setters), self is also an array.
+%   One possibility is to try and ensure that all methods can sensibly
+%   handle array inputs. One sensible way is to simply loop over self and
+%   simply call the method for each element. 
+%   The other possibility is to force the collection object to handle this,
+%   in which case, it probably makes sense to forbid calling pointProcess
+%   methods with array inputs???
 %
-% Final possibility is to allow multiple windows, but only pass back the
-% spike array in the method. That is, it doesn't alter the object. Then
-% what's the point of the object???!!
+% How to handle align? Perhaps we only the possibilities:
+%   1) scalar, applied to all windows
+%   2) vector, one per window...
+%   probably need an offset property (replace tAbsShift)
+%   either way, there should be one interface, through getWindowedTimes
+%
+% Perhaps generalize the interface to the idea that we view eventTimes
+%   through a transform.
+%     offset               scalar per window
+%     window               % 2x1 vector per window
+%     scale (time-rescale) rate function per window
+% then windowedTimes -> transformTimes
+% getWindowedTimes -> transform
 %
 % let's be concrete.
 % one neuron
@@ -100,22 +111,26 @@ classdef pointProcess
             
       % Vector of event times
       times
+
+      % Time representation 
+      timeUnits = 'seconds';
       
       % If marked point process, vector of associated magnitudes
       marks
    end
    
    properties(GetAccess = public, SetAccess = public)
-      % Time representation 
-      timeUnits = 'seconds';
 
       % This is likely just for info, not useful to convert
       % perhaps unnecessary or nonsense if marks is itself an array of
       % objects?
-      markUnits = 'none';
+%      markUnits = 'none';
  
       % [min max] time window of interest
       window
+      
+      % 
+      offset
    end
 
    % These dependent properties all apply the window property
@@ -143,11 +158,11 @@ classdef pointProcess
    % Also window-dependent, but only calculated on window change
    % Possibly set Hidden = true, or define display method to hide?
    % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
-   properties (SetAccess = private)
-      %
+   properties (SetAccess = private, Transient = true)
+      % Cell array of event times contained in window
       windowedTimes
       
-      %
+      % Cell array of indices into event times for times contained in window
       windowIndex
    end
    
@@ -168,6 +183,9 @@ classdef pointProcess
    properties(GetAccess = private, SetAccess = immutable)
       % Original [min max] time window of interest
       window_
+      
+      % Original offset
+      offset_
    end
    
    methods
@@ -229,8 +247,10 @@ classdef pointProcess
          else
             if isempty(p.Results.window)
                self.window = [min(self.times) max(self.times)];
-            else
+            elseif numel(p.Results.window) == 2
                self.window = self.checkWindow(p.Results.window);
+            else
+               error('pointProcess constructor requires a single window');
             end
          end
 
@@ -251,6 +271,7 @@ classdef pointProcess
          end
          
          self.tAbsShift = 0;
+         self.offset = 0;
       end
       
       %% Set functions
@@ -259,27 +280,20 @@ classdef pointProcess
          % Useful for error-checking public setting
          % Does not work for vector inputs, see setWindow()
          self.window = self.checkWindow(window,size(window,1));
-         
-         self.windowedTimes = getTimes(self,self.window);
+         % Only call when windows are changed
+         self = windowTimes(self);
+         self = offsetTimes(self);
       end
-     
-%       function self = setWindow(self,window)
-%          % Set the window property
-%          % window can be [1 x 2], where all objects are set to the same window
-%          % window can be [nObjs x 2], where each object window is set individually
-% 
-%          % Reset to default windows
-%          if nargin == 1
-%             self = self.setInclusiveWindow();
-%             return
-%          end
-% 
-%          n = length(self);
-%          window = self.checkWindow(window,n);         
-%          for i = 1:n
-%             self(i).window = window(i,:);
-%          end         
-%       end
+      
+      function self = set.offset(self,offset)
+         % TODO checkOffset, alias plus and minus to here
+         % SHOULD ALWAYS RESET, offset is relative to window
+         %
+         self = offsetTimes(self,true);
+         self.offset = self.checkOffset(offset,length(offset));
+         % Only call when offsets are changed
+         self = offsetTimes(self);
+      end
       
       function self = setInclusiveWindow(self)
          % Set windows to earliest and latest event times
@@ -290,22 +304,41 @@ classdef pointProcess
       end
             
       %% Get Functions
-      function windowedTimes = getTimes(self,window)
+      function self = windowTimes(self)
          n = length(self);
-
          if n == 1
-            nWindow = size(window,1);
-            window = self.checkWindow(window,nWindow);
+            nWindow = size(self.window,1);
+            times = self.times;
+            window = self.window;%self.checkWindow(window,nWindow);
             windowedTimes = cell(nWindow,1);
             for i = 1:nWindow
-               % TODO What about non-zero sync? This seems pretty useful
                %windowedTimes(i) = alignTimes({self.times},'sync',0,...
                %   'window',window(i,:),'alignWindow',true);
-               ind = (self.times>=window(i,1)) & (self.times<=window(i,2));
-               windowedTimes{i,1} = self.times(ind);
+               ind = (times>=window(i,1)) & (times<=window(i,2));
+               windowedTimes{i,1} = times(ind);
+            end
+            self.windowedTimes = windowedTimes;
+         else
+            % Handle array of objects??
+         end
+      end
+      
+      function self = offsetTimes(self,reset)
+         if nargin == 1
+            reset = false;
+         end
+         n = length(self);
+         if n == 1
+            if reset 
+               offset = -self.offset;
+            else
+               offset = self.offset;
+            end
+            for i = 1:length(offset)
+               self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset;
             end
          else
-            
+            % Handle array of objects??
          end
       end
 %       function windowedTimes = getTimes(self,window)
@@ -477,17 +510,10 @@ classdef pointProcess
          % For a full description of the possible parameters, see 
          % <a href="matlab:help('plotRaster')">plotRaster</a>
 
-         n = length(self);
-         if n < 10
-           ms = 6;
-         else
-           ms = 3;
-         end
          p = inputParser;
          p.KeepUnmatched= true;
          p.FunctionName = 'pointProcess raster method';
          % Intercept some parameters to override defaults
-         p.addParamValue('markerSize',ms,@isnumeric);
          p.addParamValue('grpBorder',false,@islogical);
          p.addParamValue('labelXAxis',false,@islogical);
          p.addParamValue('labelYAxis',false,@islogical);
@@ -495,15 +521,18 @@ classdef pointProcess
          % Passed through to plotRaster
          params = p.Unmatched;
          
-         % These window changes will NOT be persistent (not copied into object)
+         n = length(self);
          if isfield(params,'window')
+            % These window changes will NOT be persistent (not copied into object)
             window = self.checkWindow(params.window,n);
+            % call getWindowedTimes
+            times = getWindowedTimes(self,window);
          elseif n == 1
             times = self.windowedTimes;
          else
-            window = self.checkWindow(cat(1,self.window),n);
+            %window = self.checkWindow(cat(1,self.window),n);
          end
-         
+         %keyboard
          %times = getTimes(self,window);
          if isempty(times)
             % need to return handle and yOffset if they exist? TODO
@@ -585,8 +614,11 @@ classdef pointProcess
    
       function bool = eq(x,y)
          % Equality (==, isequal)
+         % Window-dependent properties are not used for comparison
+         %
          % TODO
          % check units ?
+         % maybe a 'strict' flag to compare window-dependent properties?
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % Handle case where one input is a vector
             nX = numel(x);
@@ -639,8 +671,9 @@ classdef pointProcess
    end
    
    methods(Static, Access = public)
-      function validOffset = checkOffset()
-         % Validate sync, 
+      function validOffset = checkOffset(offset,n)
+         % TODO Validate sync, 
+         validOffset = offset;
       end
       
       function validWindow = checkWindow(window,n)
