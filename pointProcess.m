@@ -257,6 +257,8 @@ classdef pointProcess
          % Tuck away the original window for resetting
          self.window_ = self.window;
          
+         % TODO, don't discard any data, leave it to user
+         % allow multiple windows on input
          % Discard event times (& marks) outside of user-supplied window
          ind = (self.times>=self.window(1)) & (self.times<=self.window(2));
          self.times = self.times(ind);
@@ -320,11 +322,14 @@ classdef pointProcess
             times = self.times;
             window = self.window;
             windowedTimes = cell(nWindow,1);
+            windowedIndex = cell(nWindow,1);
             for i = 1:nWindow
                ind = (times>=window(i,1)) & (times<=window(i,2));
                windowedTimes{i,1} = times(ind);
+               windowedIndex{i,1} = find(ind);
             end
             self.windowedTimes = windowedTimes;
+%            self.windowedIndex = windowedIndex;
          else
             % Handle array of objects??
          end
@@ -348,11 +353,7 @@ classdef pointProcess
             % Handle array of objects??
          end
       end
-      
-%      function windowedTimes = get.windowedTimes(self)
-%         windowedTimes = self.windowedTimes;
-%      end
-      
+            
 %       function intervals = get.intervals(self)
 %          % Interevent interval representation
 % %         times = getTimes(self,self.window);
@@ -411,48 +412,7 @@ classdef pointProcess
      end
 
       %% Functions
-%       function self = align(self,sync,varargin)
-%          % Align event times
-%          % sync can be a scalar, where it is applied to all objects
-%          % sync can be [nObjs x 1], where each object is aligned individually
-%          % NaN elements in sync skipped
-%          % The window property is also aligned
-%          % For a full description, see 
-%          % <a href="matlab:help('alignTimes')">alignTimes</a>
-%          
-%          % Automatically reset
-%          self = self.undoAlign();
-% 
-%          n = length(self);
-%          % Check sync dimension
-%          if numel(sync) == 1
-%             sync = repmat(sync,n,1);
-%          elseif ~(numel(sync)==n)
-%             error('Sync must have length 1 or nObj');
-%          end
-%          
-%          for i = 1:n
-%             if ~isnan(sync(i))
-%                % Always take all events to ensure we can recontruct original times
-%                [tempTimes,tempWindow] = alignTimes({self(i).times},'sync',sync(i),...
-%                   'window',[min(self(i).times) max(self(i).times)],'alignWindow',true);
-%                self(i).times = tempTimes{1};
-%                self(i).window = tempWindow;
-%                self(i).tAbsShift = sync(i);
-%             end
-%          end
-%       end
-      
-%       function self = undoAlign(self)
-%          % Undo align
-%          n = length(self);
-%          for i = 1:n
-%             self(i).times = self(i).times + self(i).tAbsShift;
-%             self(i).window = self(i).window + self(i).tAbsShift;
-%             self(i).tAbsShift = 0;
-%          end
-%       end
-      
+
 %       function self = reset(self)
 %          % Reset times and windows to state when object was created
 %          self = self.undoAlign();
