@@ -288,7 +288,6 @@ classdef pointProcess
       end
       
       function self = set.offset(self,offset)
-         % TODO checkOffset, alias plus and minus to here
          
          newOffset = self.checkOffset(offset,size(self.window,1));
          if length(newOffset) ~= length(self.offset)
@@ -338,9 +337,9 @@ classdef pointProcess
          n = length(self);
          if n == 1
             if reset 
-               offset = -self.offset
+               offset = -self.offset;
             else
-               offset = self.offset
+               offset = self.offset;
             end
             for i = 1:length(offset)
                self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
@@ -350,9 +349,9 @@ classdef pointProcess
          end
       end
       
-      function windowedTimes = get.windowedTimes(self)
-         windowedTimes = self.windowedTimes;
-      end
+%      function windowedTimes = get.windowedTimes(self)
+%         windowedTimes = self.windowedTimes;
+%      end
       
 %       function intervals = get.intervals(self)
 %          % Interevent interval representation
@@ -504,18 +503,12 @@ classdef pointProcess
          params = p.Unmatched;
          
          n = length(self);
-         %if isfield(params,'window')
-            % These window changes will NOT be persistent (not copied into object)
-         %   window = self.checkWindow(params.window,n);
-         %   % call getWindowedTimes
-         %   times = getWindowedTimes(self,window);
-         %elseif n == 1
+         if n == 1
             times = self.windowedTimes;
-         %else
+         else
             %window = self.checkWindow(cat(1,self.window),n);
-         %end
-         %keyboard
-         %times = getTimes(self,window);
+         end
+         
          if isempty(times)
             % need to return handle and yOffset if they exist? TODO
             if isfield(params,'h')
@@ -572,9 +565,11 @@ classdef pointProcess
             % not done yet
             % should merge the objects
          elseif isa(x,'pointProcess') && isnumeric(y)
-            obj = align(x,-y);
+            x.offset = y;
+            obj = x;
          elseif isa(y,'pointProcess') && isnumeric(x)
-            obj = align(y,-x);
+            y.offset = x;
+            obj = y;
          else
             error('Plus not defined for inputs');
          end
@@ -586,9 +581,11 @@ classdef pointProcess
             % not done yet
             % should delete the common times from object
          elseif isa(x,'pointProcess') && isnumeric(y)
-            obj = align(x,y);
+            x.offset = -y;
+            obj = x;
          elseif isa(y,'pointProcess') && isnumeric(x)
-            obj = align(y,x);
+            y.offset = -x;
+            obj = y;
          else
             error('Minus not defined for inputs');
          end
