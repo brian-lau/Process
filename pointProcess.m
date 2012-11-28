@@ -129,7 +129,7 @@ classdef pointProcess
       % [min max] time window of interest
       window
       
-      % 
+      % offset of event times relative to window
       offset
    end
 
@@ -169,7 +169,7 @@ classdef pointProcess
    properties(GetAccess = private, SetAccess = private)
       % Time shift that returns times back to state when object was created
       % perhaps this should be called tRelShift
-      tAbsShift
+%      tAbsShift
    end
    
    properties(GetAccess = public, SetAccess = immutable)
@@ -270,8 +270,8 @@ classdef pointProcess
             self.tAbs = p.Results.tAbs;
          end
          
-         self.tAbsShift = 0;
-         self.offset = 0;
+%         self.tAbsShift = 0;
+%         self.offset = 0;
       end
       
       %% Set functions
@@ -279,22 +279,29 @@ classdef pointProcess
          % Convenience method for setting the window property
          % Useful for error-checking public setting
          % Does not work for vector inputs, see setWindow()
+         
+         % what to do about offset when window changes?
+         % Reset offset, which is always relative to window
+         %keyboard
+         %self = offsetTimes(self,true);         
          self.window = self.checkWindow(window,size(window,1));
+         %
          % Only call when windows are changed
          self = windowTimes(self);
-         self = offsetTimes(self);
+         self.offset = zeros(size(window,1),1);
+         %self = offsetTimes(self);
       end
       
       function self = set.offset(self,offset)
          % TODO checkOffset, alias plus and minus to here
-         % SHOULD ALWAYS RESET, offset is relative to window
-         %
-         self = offsetTimes(self,true);
+         
+         % Reset offset, which is always relative to window
+         %self = offsetTimes(self,true);
          self.offset = self.checkOffset(offset,length(offset));
          % Only call when offsets are changed
          self = offsetTimes(self);
       end
-      
+            
       function self = setInclusiveWindow(self)
          % Set windows to earliest and latest event times
          n = length(self);
@@ -309,11 +316,9 @@ classdef pointProcess
          if n == 1
             nWindow = size(self.window,1);
             times = self.times;
-            window = self.window;%self.checkWindow(window,nWindow);
+            window = self.window;
             windowedTimes = cell(nWindow,1);
             for i = 1:nWindow
-               %windowedTimes(i) = alignTimes({self.times},'sync',0,...
-               %   'window',window(i,:),'alignWindow',true);
                ind = (times>=window(i,1)) & (times<=window(i,2));
                windowedTimes{i,1} = times(ind);
             end
@@ -335,41 +340,15 @@ classdef pointProcess
                offset = self.offset;
             end
             for i = 1:length(offset)
-               self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset;
+               self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
             end
          else
             % Handle array of objects??
          end
       end
-%       function windowedTimes = getTimes(self,window)
-%          % Apply window to times
-%          % Note that windowedTimes is a cell array
-%          n = length(self);
-%          keyboard
-%          % These window changes will NOT be persistent (not copied into object)
-%          if nargin == 2
-%             window = self.checkWindow(window,n);
-%          else
-%             window = self.checkWindow(cat(1,self.window),n);
-%          end
-% 
-%          for i = 1:n
-%             % TODO call alignTimes here? What is the advantage? error-checking?
-%             % extra parameters??? Just consistency? What about non-zero
-%             % sync? This seems pretty useful
-% %            ind = (self(i).times>=window(i,1)) & (self(i).times<=window(i,2));
-% %            windowedTimes{i,1} = self(i).times(ind);
-%              windowedTimes(i,1) = alignTimes({self(i).times},'sync',0,...
-%                 'window',window(i,:),'alignWindow',true);
-%          end
-%          
-%          if isrow(self)
-%             windowedTimes = windowedTimes';
-%          end         
-%       end
       
       function windowedTimes = get.windowedTimes(self)
-         windowedTimes = self.windowedTimes;%getTimes(self,self.window);
+         windowedTimes = self.windowedTimes;
       end
       
 %       function intervals = get.intervals(self)
@@ -430,57 +409,57 @@ classdef pointProcess
      end
 
       %% Functions
-      function self = align(self,sync,varargin)
-         % Align event times
-         % sync can be a scalar, where it is applied to all objects
-         % sync can be [nObjs x 1], where each object is aligned individually
-         % NaN elements in sync skipped
-         % The window property is also aligned
-         % For a full description, see 
-         % <a href="matlab:help('alignTimes')">alignTimes</a>
-         
-         % Automatically reset
-         self = self.undoAlign();
-
-         n = length(self);
-         % Check sync dimension
-         if numel(sync) == 1
-            sync = repmat(sync,n,1);
-         elseif ~(numel(sync)==n)
-            error('Sync must have length 1 or nObj');
-         end
-         
-         for i = 1:n
-            if ~isnan(sync(i))
-               % Always take all events to ensure we can recontruct original times
-               [tempTimes,tempWindow] = alignTimes({self(i).times},'sync',sync(i),...
-                  'window',[min(self(i).times) max(self(i).times)],'alignWindow',true);
-               self(i).times = tempTimes{1};
-               self(i).window = tempWindow;
-               self(i).tAbsShift = sync(i);
-            end
-         end
-      end
+%       function self = align(self,sync,varargin)
+%          % Align event times
+%          % sync can be a scalar, where it is applied to all objects
+%          % sync can be [nObjs x 1], where each object is aligned individually
+%          % NaN elements in sync skipped
+%          % The window property is also aligned
+%          % For a full description, see 
+%          % <a href="matlab:help('alignTimes')">alignTimes</a>
+%          
+%          % Automatically reset
+%          self = self.undoAlign();
+% 
+%          n = length(self);
+%          % Check sync dimension
+%          if numel(sync) == 1
+%             sync = repmat(sync,n,1);
+%          elseif ~(numel(sync)==n)
+%             error('Sync must have length 1 or nObj');
+%          end
+%          
+%          for i = 1:n
+%             if ~isnan(sync(i))
+%                % Always take all events to ensure we can recontruct original times
+%                [tempTimes,tempWindow] = alignTimes({self(i).times},'sync',sync(i),...
+%                   'window',[min(self(i).times) max(self(i).times)],'alignWindow',true);
+%                self(i).times = tempTimes{1};
+%                self(i).window = tempWindow;
+%                self(i).tAbsShift = sync(i);
+%             end
+%          end
+%       end
       
-      function self = undoAlign(self)
-         % Undo align
-         n = length(self);
-         for i = 1:n
-            self(i).times = self(i).times + self(i).tAbsShift;
-            self(i).window = self(i).window + self(i).tAbsShift;
-            self(i).tAbsShift = 0;
-         end
-      end
+%       function self = undoAlign(self)
+%          % Undo align
+%          n = length(self);
+%          for i = 1:n
+%             self(i).times = self(i).times + self(i).tAbsShift;
+%             self(i).window = self(i).window + self(i).tAbsShift;
+%             self(i).tAbsShift = 0;
+%          end
+%       end
       
-      function self = reset(self)
-         % Reset times and windows to state when object was created
-         self = self.undoAlign();
-         
-         n = length(self);
-         for i = 1:n
-            self(i).window = self(i).window_;
-         end
-      end
+%       function self = reset(self)
+%          % Reset times and windows to state when object was created
+%          self = self.undoAlign();
+%          
+%          n = length(self);
+%          for i = 1:n
+%             self(i).window = self(i).window_;
+%          end
+%       end
       
       function h = plot(self,varargin)
          % Plot times & counting process
@@ -522,16 +501,16 @@ classdef pointProcess
          params = p.Unmatched;
          
          n = length(self);
-         if isfield(params,'window')
+         %if isfield(params,'window')
             % These window changes will NOT be persistent (not copied into object)
-            window = self.checkWindow(params.window,n);
-            % call getWindowedTimes
-            times = getWindowedTimes(self,window);
-         elseif n == 1
+         %   window = self.checkWindow(params.window,n);
+         %   % call getWindowedTimes
+         %   times = getWindowedTimes(self,window);
+         %elseif n == 1
             times = self.windowedTimes;
-         else
+         %else
             %window = self.checkWindow(cat(1,self.window),n);
-         end
+         %end
          %keyboard
          %times = getTimes(self,window);
          if isempty(times)
@@ -673,7 +652,10 @@ classdef pointProcess
    methods(Static, Access = public)
       function validOffset = checkOffset(offset,n)
          % TODO Validate sync, 
-         validOffset = offset;
+         if nargin == 1
+            n = 1;
+         end
+         validOffset = checkOffset(offset,n);
       end
       
       function validWindow = checkWindow(window,n)
