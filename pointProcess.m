@@ -280,26 +280,29 @@ classdef pointProcess
          % Useful for error-checking public setting
          % Does not work for vector inputs, see setWindow()
          
-         % what to do about offset when window changes?
-         % Reset offset, which is always relative to window
-         %keyboard
-         %self = offsetTimes(self,true);         
          self.window = self.checkWindow(window,size(window,1));
-         %
          % Only call when windows are changed
          self = windowTimes(self);
+         % Reset offset, which is always relative to window
          self.offset = zeros(size(window,1),1);
-         %self = offsetTimes(self);
       end
       
       function self = set.offset(self,offset)
          % TODO checkOffset, alias plus and minus to here
          
-         % Reset offset, which is always relative to window
-         %self = offsetTimes(self,true);
-         self.offset = self.checkOffset(offset,length(offset));
-         % Only call when offsets are changed
-         self = offsetTimes(self);
+         newOffset = self.checkOffset(offset,size(self.window,1));
+         if length(newOffset) ~= length(self.offset)
+            % If the new offset is a different length than the old
+            % checkOffset ensures that the only way to get here is through 
+            % set.window(), so we blithely assign newOffset, which is zero
+            self.offset = newOffset;
+         else
+            % Reset offset, which is always relative to window
+            self = offsetTimes(self,true);
+            self.offset = newOffset;
+            % Only call when offsets are changed
+            self = offsetTimes(self);
+         end
       end
             
       function self = setInclusiveWindow(self)
@@ -309,7 +312,7 @@ classdef pointProcess
             self(i).window = [min(self(i).times) max(self(i).times)];
          end
       end
-            
+      
       %% Get Functions
       function self = windowTimes(self)
          n = length(self);
@@ -335,9 +338,9 @@ classdef pointProcess
          n = length(self);
          if n == 1
             if reset 
-               offset = -self.offset;
+               offset = -self.offset
             else
-               offset = self.offset;
+               offset = self.offset
             end
             for i = 1:length(offset)
                self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
