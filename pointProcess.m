@@ -39,6 +39,18 @@
 %
 % How to ensure we can always load the data? How to save? as struct and use
 % savObj and loadObj methods
+%  Do I need to suppport construction from a struct?
+%http://www.mathworks.com/help/matlab/matlab_oop/example--maintaining-class-compatibility.html
+%http://www.mathworks.com/help/matlab/matlab_oop/passing-arguments-to-constructors-during-load.html
+%http://www.mathworks.com/matlabcentral/newsreader/view_thread/261903
+%http://www.cs.ubc.ca/~murphyk/Software/matlabObjects.html
+%http://www.mathworks.com/support/solutions/en/data/1-BU9EU7/index.html?product=M
+%http://fluffynukeit.com/tag/saveobj/
+%http://www.mathworks.com/matlabcentral/fileexchange/34564-fast-serializedeserialize
+%https://groups.google.com/forum/?fromgroups=#!topic/comp.soft-sys.matlab/-m6graaO5Ig
+%http://stackoverflow.com/questions/3161649/loading-saved-objects-from-disk-is-slow-in-matlab
+%http://www.mathworks.com/matlabcentral/answers/8056
+%http://kabamaru.blogspot.fr/2012/06/saving-and-loading-functionality-to-gml.html
 %   started by including version property
 %
 %   If I do the above, should also be a method to "break" a multiply
@@ -116,18 +128,11 @@ classdef pointProcess
 
    % These dependent properties all apply the window property
    properties (GetAccess = public, SetAccess = private, Dependent = true, Transient = true)
-      
-%      % Interevent interval representation
-%      intervals
-      
-%       % Counting process representation
-%       countingProcess
-      
       % # of events within window
       count
       
       % count/window Hz?
-      rate 
+      rate
       
       % Minimum event time within window
       minTime
@@ -150,6 +155,16 @@ classdef pointProcess
    properties(GetAccess = public, SetAccess = immutable)
       % Time that event times are relative to when object is constructed
       tAbs
+      
+      % This should replace tAbs
+      tStart
+      
+      % this will typically be the censor time? Why is it useful, well it
+      % allows you to distinguish no events from no data
+      tEnd
+      
+      % possibly useful?
+      censor = 'interval';
       
       %
       version = 0.1;
@@ -181,7 +196,7 @@ classdef pointProcess
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcess constructor';
          p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
-         p.addParamValue('info',[],@iscell);
+         p.addParamValue('info',[],@(x)(iscell(x)||isa(x,'containers.Map')));
          p.addParamValue('infoKeys',[],@iscell);
          p.addParamValue('times',NaN,@isnumeric);
          p.addParamValue('marks',[],@isnumeric);
@@ -197,6 +212,7 @@ classdef pointProcess
          if isempty(p.Results.info)
             self.info = containers.Map();
          else
+            % TODO, allow passing in a  map, ignore infoKeys
             if isempty(p.Results.infoKeys)
                for i = 1:length(p.Results.info)
                   infoKeys{i,1} = ['dim' num2str(i)];
@@ -256,8 +272,7 @@ classdef pointProcess
       function self = set.window(self,window)
          % Set the window property
          %
-         % Does not work for vector inputs, see setWindow()
-         
+         % Does not work for vector inputs, need setWindow()
          self.window = self.checkWindow(window,size(window,1));
          % Reset offset, which is always relative to window
          self.offset = 'windowIsReset';
@@ -267,6 +282,8 @@ classdef pointProcess
       
       function self = set.offset(self,offset)
          % Set the offset property
+         %
+         % Does not work for vector inputs, need setOffset()
          if strcmp(offset,'windowIsReset')
             self.offset = zeros(size(self.window,1));
          else
@@ -314,19 +331,14 @@ classdef pointProcess
          end
          n = length(self);
          if n == 1
-            %keyboard
             if reset 
                offset = -self.offset;
             else
                offset = self.offset;
             end
-            windowedTimes = cell(length(offset),1);
             for i = 1:length(offset)
-               %self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
-               windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
-               %self.windowedTimes{i,1} = randn(1,100);
+               self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
             end
-            self.windowedTimes = windowedTimes;
          else
             % Handle array of objects??
          end
@@ -463,7 +475,7 @@ classdef pointProcess
       end
       
       function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
-         % Get history-independent intensity representation
+         % Get history-independent intensity (marginal)
          % For a full description of the possible parameters, see 
          % <a href="matlab:help('getPsth')">getPsth</a>
 
@@ -493,7 +505,7 @@ classdef pointProcess
       end
       
       function self = transform(self)
-         % Transformation like time-rescaling
+         % Transformation like time-rescaling, thinning, etc?
          % should be a property transformFunction that contains a function
          % handle that accepts spikes and possibly other inputs
          % applied after windowing, so the most general form would be an
