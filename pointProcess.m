@@ -36,30 +36,11 @@
 %
 % HANDLE versus VALUE class
 %
-% externalize getTimes, in fact, if we clean up alignTimes a bit, the
-% method could just call this function. GetTimes is a misleading name,
-% suggests that I am just returning times property. Should be
-% getWindowedTimes or something more descriptive. Should allow sync, window
-% inputs
 %
 % How to ensure we can always load the data? How to save? as struct and use
 % savObj and loadObj methods
 %   started by including version property
 %
-% what about multiple windows? should all the dependent properties become
-% cell arrays??? that seems ugly. Does this mean that the only way to
-% create a triggered PSTH is via collection object?
-% A triggered analysis (multiple events) seems to be a basic requirement of
-% pointProcess?
-%
-% One possibility is to enhance alignTimes to accept multiple window and
-% sync inputs. Then properties like window, intervals, count, rate, etc
-% would need to handle this. However, what if we also want the spike times
-% within all these windows? currently we never see these, since the
-% properties implicitly window the times and discard them. 
-% Perhaps we need a property that transiently stores the windowed times?
-% windowedTimes. This maybe even useful by itself, since all methods see
-% things through the window anyways? Avoid calling getTimes?
 %   If I do the above, should also be a method to "break" a multiply
 %   windowed pointProcess into a collection?
 %
@@ -165,13 +146,7 @@ classdef pointProcess
       % Cell array of indices into event times for times contained in window
       windowIndex
    end
-   
-   properties(GetAccess = private, SetAccess = private)
-      % Time shift that returns times back to state when object was created
-      % perhaps this should be called tRelShift
-%      tAbsShift
-   end
-   
+      
    properties(GetAccess = public, SetAccess = immutable)
       % Time that event times are relative to when object is constructed
       tAbs
@@ -211,6 +186,7 @@ classdef pointProcess
          p.addParamValue('times',NaN,@isnumeric);
          p.addParamValue('marks',[],@isnumeric);
          p.addParamValue('window',[],@isnumeric);
+         p.addParamValue('offset',[],@isnumeric);
          p.addParamValue('tAbs',0,@isnumeric);
          p.parse(varargin{:});
          
@@ -257,6 +233,8 @@ classdef pointProcess
          % Tuck away the original window for resetting
          self.window_ = self.window;
          
+         % TODO allow offset parameter?
+         
          % TODO, don't discard any data, leave it to user
          % allow multiple windows on input
          % Discard event times (& marks) outside of user-supplied window
@@ -272,32 +250,27 @@ classdef pointProcess
             self.tAbs = p.Results.tAbs;
          end
          
-%         self.tAbsShift = 0;
-%         self.offset = 0;
       end
       
       %% Set functions
       function self = set.window(self,window)
-         % Convenience method for setting the window property
-         % Useful for error-checking public setting
+         % Set the window property
+         %
          % Does not work for vector inputs, see setWindow()
          
          self.window = self.checkWindow(window,size(window,1));
-         % Only call when windows are changed
-         self = windowTimes(self);
          % Reset offset, which is always relative to window
-         self.offset = zeros(size(window,1),1);
+         self.offset = 'windowIsReset';
+         % Expensive, only call when windows are changed
+         self = windowTimes(self);
       end
       
       function self = set.offset(self,offset)
-         
-         newOffset = self.checkOffset(offset,size(self.window,1));
-         if length(newOffset) ~= length(self.offset)
-            % If the new offset is a different length than the old
-            % checkOffset ensures that the only way to get here is through 
-            % set.window(), so we blithely assign newOffset, which is zero
-            self.offset = newOffset;
+         % Set the offset property
+         if strcmp(offset,'windowIsReset')
+            self.offset = zeros(size(self.window,1));
          else
+            newOffset = self.checkOffset(offset,size(self.window,1));
             % Reset offset, which is always relative to window
             self = offsetTimes(self,true);
             self.offset = newOffset;
@@ -326,7 +299,7 @@ classdef pointProcess
             for i = 1:nWindow
                ind = (times>=window(i,1)) & (times<=window(i,2));
                windowedTimes{i,1} = times(ind);
-               windowedIndex{i,1} = find(ind);
+%               windowedIndex{i,1} = find(ind);
             end
             self.windowedTimes = windowedTimes;
 %            self.windowedIndex = windowedIndex;
@@ -341,14 +314,19 @@ classdef pointProcess
          end
          n = length(self);
          if n == 1
+            %keyboard
             if reset 
                offset = -self.offset;
             else
                offset = self.offset;
             end
+            windowedTimes = cell(length(offset),1);
             for i = 1:length(offset)
-               self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
+               %self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
+               windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
+               %self.windowedTimes{i,1} = randn(1,100);
             end
+            self.windowedTimes = windowedTimes;
          else
             % Handle array of objects??
          end
@@ -514,8 +492,12 @@ classdef pointProcess
          [r,t,r_sem,count,reps] = getPsth(times,p.Results.bw,params);
       end
       
-      function self = rescale(self)
-         % Time rescale
+      function self = transform(self)
+         % Transformation like time-rescaling
+         % should be a property transformFunction that contains a function
+         % handle that accepts spikes and possibly other inputs
+         % applied after windowing, so the most general form would be an
+         % array of function handles, but this really seems excessive...
       end
       
       %% Operators
