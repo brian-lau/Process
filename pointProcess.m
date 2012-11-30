@@ -81,16 +81,8 @@
 % then windowedTimes -> transformTimes
 % getWindowedTimes -> transform
 %
-% let's be concrete.
-% one neuron
-% let's say 10 orientations presented randomly every 20 ms
 %
-% want to be able to do
 %
-% spk.align([ori[1]times,ori[2]times... ori[10]times,'window',[-.1 0])
-% spk.rate should return a comma separated list of rates for each window
-%
-% 
 
 
 classdef pointProcess
@@ -163,7 +155,7 @@ classdef pointProcess
       % allows you to distinguish no events from no data
       tEnd
       
-      % possibly useful?
+      % 'right', 'left' or 'interval', possibly useful?
       censor = 'interval';
       
       %
@@ -280,6 +272,14 @@ classdef pointProcess
          self = windowTimes(self);
       end
       
+      function self = setInclusiveWindow(self)
+         % Set windows to earliest and latest event times
+         n = length(self);
+         for i = 1:n
+            self(i).window = [min(self(i).times) max(self(i).times)];
+         end
+      end
+      
       function self = set.offset(self,offset)
          % Set the offset property
          %
@@ -294,17 +294,8 @@ classdef pointProcess
             % Only call when offsets are changed
             self = offsetTimes(self);
          end
-      end
-            
-      function self = setInclusiveWindow(self)
-         % Set windows to earliest and latest event times
-         n = length(self);
-         for i = 1:n
-            self(i).window = [min(self(i).times) max(self(i).times)];
-         end
-      end
+      end      
       
-      %% Get Functions
       function self = windowTimes(self)
          n = length(self);
          if n == 1
@@ -344,31 +335,26 @@ classdef pointProcess
          end
       end
             
-%       function intervals = get.intervals(self)
-%          % Interevent interval representation
-% %         times = getTimes(self,self.window);
-% %         intervals = diff(times{1});
-%          
-%          times = self.windowedTimes;
-%          for i = 1:length(times)
-%             intervals{i,1} = diff(times{i});
-%          end
-%       end
+      function self = transform(self,functionHandle,varargin)
+         keyboard
+         
+         % Transformation like time-rescaling, thinning, etc?
+         % should be a property transformFunction that contains a function
+         % handle that accepts spikes and possibly other inputs
+         % applied after windowing, so the most general form would be an
+         % array of function handles, but this really seems excessive...
+      end
       
-%       function countingProcess = get.countingProcess(self)
-%          % Counting process representation
-%          if any(isnan(self.window))
-%             countingProcess = [NaN NaN];
-%          else
-%             window = self.window;
-%             times = getTimes(self,window);
-%             times = times{1};
-%             count = cumsum(ones(size(times)));
-%             tStart = max(-inf,unique(min(times)));
-%             countingProcess = [[tStart;times] , [0;count]];
-%          end
-%       end
+      function self = reset(self)
+         % Reset times and windows to state when object was created         
+         n = length(self);
+         for i = 1:n
+            self(i).window = self(i).window_;
+            self(i).offset = self(i).offset_;
+         end
+      end
       
+      %% Get Functions
       function count = get.count(self)
          % # of events within windows
          times = self.windowedTimes;
@@ -399,19 +385,35 @@ classdef pointProcess
          for i = 1:length(times)
             maxTime(i,1) = max(times{i});
          end
-     end
+      end
+
+     %       function intervals = get.intervals(self)
+%          % Interevent interval representation
+% %         times = getTimes(self,self.window);
+% %         intervals = diff(times{1});
+%          
+%          times = self.windowedTimes;
+%          for i = 1:length(times)
+%             intervals{i,1} = diff(times{i});
+%          end
+%       end
+      
+%       function countingProcess = get.countingProcess(self)
+%          % Counting process representation
+%          if any(isnan(self.window))
+%             countingProcess = [NaN NaN];
+%          else
+%             window = self.window;
+%             times = getTimes(self,window);
+%             times = times{1};
+%             count = cumsum(ones(size(times)));
+%             tStart = max(-inf,unique(min(times)));
+%             countingProcess = [[tStart;times] , [0;count]];
+%          end
+%       end
 
       %% Functions
 
-%       function self = reset(self)
-%          % Reset times and windows to state when object was created
-%          self = self.undoAlign();
-%          
-%          n = length(self);
-%          for i = 1:n
-%             self(i).window = self(i).window_;
-%          end
-%       end
       
       function h = plot(self,varargin)
          % Plot times & counting process
@@ -503,21 +505,14 @@ classdef pointProcess
          times = getTimes(self,window);
          [r,t,r_sem,count,reps] = getPsth(times,p.Results.bw,params);
       end
-      
-      function self = transform(self)
-         % Transformation like time-rescaling, thinning, etc?
-         % should be a property transformFunction that contains a function
-         % handle that accepts spikes and possibly other inputs
-         % applied after windowing, so the most general form would be an
-         % array of function handles, but this really seems excessive...
-      end
-      
+            
       %% Operators
       function obj = plus(x,y)
          % Addition
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
             % should merge the objects
+            % order will matter, how to deal with names & info?
          elseif isa(x,'pointProcess') && isnumeric(y)
             x.offset = y;
             obj = x;
@@ -604,8 +599,9 @@ classdef pointProcess
    end
    
    methods(Static, Access = public)
+      
       function validOffset = checkOffset(offset,n)
-         % TODO Validate sync, 
+         % Error checking for offset
          if nargin == 1
             n = 1;
          end
@@ -613,6 +609,7 @@ classdef pointProcess
       end
       
       function validWindow = checkWindow(window,n)
+         % Error checking for window
          if nargin == 1
             n = 1;
          end
