@@ -82,7 +82,9 @@
 % getWindowedTimes -> transform
 %
 %
-%
+% need an isValidWindow property
+% use the start and end times to check whether there is actually the
+% potential for event times in the windows, otherwise assign nan
 
 
 classdef pointProcess
@@ -142,6 +144,9 @@ classdef pointProcess
       
       % Cell array of indices into event times for times contained in window
       windowIndex
+      
+      % Boolean indicating
+      isValidWindow
    end
       
    properties(GetAccess = public, SetAccess = immutable)
@@ -149,10 +154,12 @@ classdef pointProcess
       tAbs
       
       % This should replace tAbs
+      % Should default to zero
       tStart
       
       % this will typically be the censor time? Why is it useful, well it
       % allows you to distinguish no events from no data
+      % should default to last event time
       tEnd
       
       % 'right', 'left' or 'interval', possibly useful?
