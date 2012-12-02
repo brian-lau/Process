@@ -85,7 +85,11 @@
 % need an isValidWindow property
 % use the start and end times to check whether there is actually the
 % potential for event times in the windows, otherwise assign nan
-
+%
+% consider creating an event class that will include a single time, then
+% pointProcess will have an array of events that have a common origin. This
+% is a natural way to keep the mark together with it's time. Problem is
+% there will be many events, we will run into penalties for object access.
 
 classdef pointProcess
 %
