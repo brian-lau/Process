@@ -90,6 +90,8 @@
 % pointProcess will have an array of events that have a common origin. This
 % is a natural way to keep the mark together with it's time. Problem is
 % there will be many events, we will run into penalties for object access.
+%
+% window should have the option to destroy data?
 
 classdef pointProcess
 %
@@ -104,7 +106,7 @@ classdef pointProcess
       times
 
       % Time representation 
-      unit = 'seconds';
+%      unit = 'seconds';
       
       % If marked point process, vector of associated magnitudes
       % maybe this should be a container? use keys that correspond either
@@ -182,7 +184,8 @@ classdef pointProcess
       % Cell array of indices into event times for times contained in window
       windowIndex
       
-      % Boolean indicating
+      % Boolean indicating whether or not window lies within start and end
+      % time of process
       isValidWindow
    end
       
@@ -219,7 +222,7 @@ classdef pointProcess
          p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
          p.addParamValue('infoKeys',[],@iscell);
          p.addParamValue('times',NaN,@isnumeric);
-         p.addParamValue('marks',[],@(x) isnumeric(x) || iscell(x) );
+         p.addParamValue('marks',[],@(x) isnumeric(x) || iscell(x) || isa(x,'containers.Map'));
          p.addParamValue('window',[],@isnumeric);
          p.addParamValue('offset',[],@isnumeric);
          p.addParamValue('tStart',0,@isnumeric);
@@ -232,10 +235,17 @@ classdef pointProcess
          [eventTimes,tInd] = sort(p.Results.times(:)');
 
          % Sort corresponding marks
-         if ~isempty(p.Results.marks)
-            eventMarks = p.Results.marks(tInd);
-         else
+         if isempty(p.Results.marks)
             eventMarks = [];
+         elseif isa(p.Results.marks,'containers.Map')
+            if all(isKey(p.Results.marks,num2cell(tInd)))
+               % TODO THERE IS NO SORTING HERE? NOT SURE IT MAKES SENSE TO
+               eventMarks = p.Results.marks;
+            else
+               error('bad marks dictionary');
+            end
+         else
+            eventMarks = p.Results.marks(tInd);
          end
          
          % Define the start and end times of the process
@@ -252,19 +262,18 @@ classdef pointProcess
          
          % Discard event times (& marks) outside of start and end
          ind = (eventTimes>=self.tStart) & (eventTimes<=self.tEnd);
-         %self.times = eventTimes(ind);
          if isempty(ind)
             self.times = [];
          else
             self.times = eventTimes(ind);
          end
          if isempty(eventMarks)
-            %self.marks = [];
             self.marks = containers.Map();
          else
-            %self.marks = eventMarks(ind);
             if iscell(eventMarks)
                self.marks = containers.Map(1:length(ind),eventMarks(ind));
+            elseif isa(eventMarks,'containers.Map')
+               self.marks = eventMarks;
             else
                self.marks = containers.Map(1:length(ind),{eventMarks(ind)});
             end
@@ -273,8 +282,10 @@ classdef pointProcess
          % Create an info dictionary
          if isempty(p.Results.info)
             self.info = containers.Map();
+         elseif isa(p.Results.info,'containers.Map')
+            % Passing in a  map, ignore infoKeys
+            self.info = p.Results.info;
          else
-            % TODO, allow passing in a  map, ignore infoKeys
             if isempty(p.Results.infoKeys)
                for i = 1:length(p.Results.info)
                   infoKeys{i,1} = ['dim' num2str(i)];
@@ -465,7 +476,32 @@ classdef pointProcess
 %       end
 
       %% Functions
-
+      function self = chop(self,window)
+         % if window passed in
+         %keyboard
+         % else we will chop based on the current windows
+         nWindow = size(self.window,1);
+         if nWindow == 1
+            return;
+         else
+         % create object array the size needed
+         % loop and construct
+            for i = 1:nWindow
+               obj(i) = pointProcess(...
+                  'name',self.name,...
+                  'info',self.info,...
+                  'times',self.windowedTimes{i},...
+                  'marks',self.marks,...
+                  'tStart',self.window(i,1),...
+                  'tEnd',self.window(i,2),...
+                  'window',self.window(i,:),...
+                  'offset',self.offset(i)...
+                  );
+            end
+            self = obj;
+         end
+         
+      end
       
       function h = plot(self,varargin)
          % Plot times & counting process
