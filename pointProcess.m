@@ -104,13 +104,40 @@ classdef pointProcess
       times
 
       % Time representation 
-      timeUnits = 'seconds';
+      unit = 'seconds';
       
       % If marked point process, vector of associated magnitudes
+      % maybe this should be a container? use keys that correspond either
+      % to the eventTimes (double) or eventTime index (integer). then this
+      % can always be filtered, and is always correctly associated with
+      % times? If pointProcess is a neuron, you might put waveforms in here
+      % if pointProcess is a set of event times, like stimulus onset, you
+      % might put image name or something in here. More likely, different
+      % images would be different pointProcess objects? What if you do
+      % revcorr and want to store each stimulus (ori, sf, color, etc)? then
+      % each mark would contain a structure)
       marks
    end
    
-   properties(GetAccess = public, SetAccess = public)
+    properties(GetAccess = public, SetAccess = immutable)
+      % Time that event times are relative to when object is constructed
+%      tAbs
+      
+      % This should replace tAbs
+      % Should default to zero
+      tStart
+      
+      % this will typically be the censor time? Why is it useful, well it
+      % allows you to distinguish no events from no data
+      % should default to last event time
+      tEnd
+      
+      % 'right', 'left' or 'interval', possibly useful?
+      %censor = 'interval';
+      
+    end
+    
+    properties(GetAccess = public, SetAccess = public)
 
       % This is likely just for info, not useful to convert
       % perhaps unnecessary or nonsense if marks is itself an array of
@@ -129,20 +156,26 @@ classdef pointProcess
       % # of events within window
       count
       
-      % count/window Hz?
-      rate
+%       % count/window Hz?
+%       lambda
       
       % Minimum event time within window
-      minTime
+ %     minTime
       
       % Minimum event time within window
-      maxTime
+ %     maxTime
    end
    
    % Also window-dependent, but only calculated on window change
    % Possibly set Hidden = true, or define display method to hide?
    % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
    properties (SetAccess = private, Transient = true)
+      %
+      lambdaEstimator = 'bin';
+      
+      % count/window Hz?
+      lambda
+      
       % Cell array of event times contained in window
       windowedTimes
       
@@ -153,25 +186,6 @@ classdef pointProcess
       isValidWindow
    end
       
-   properties(GetAccess = public, SetAccess = immutable)
-      % Time that event times are relative to when object is constructed
-      tAbs
-      
-      % This should replace tAbs
-      % Should default to zero
-      tStart
-      
-      % this will typically be the censor time? Why is it useful, well it
-      % allows you to distinguish no events from no data
-      % should default to last event time
-      tEnd
-      
-      % 'right', 'left' or 'interval', possibly useful?
-      censor = 'interval';
-      
-      %
-      version = 0.1;
-   end
       
    properties(GetAccess = private, SetAccess = immutable)
       % Original [min max] time window of interest
@@ -179,6 +193,9 @@ classdef pointProcess
       
       % Original offset
       offset_
+
+      % Classdef version for loadobj & saveobj
+      version = 0.1;
    end
    
    methods
@@ -199,19 +216,61 @@ classdef pointProcess
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcess constructor';
          p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
-         p.addParamValue('info',[],@(x)(iscell(x)||isa(x,'containers.Map')));
+         p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
          p.addParamValue('infoKeys',[],@iscell);
          p.addParamValue('times',NaN,@isnumeric);
-         p.addParamValue('marks',[],@isnumeric);
+         p.addParamValue('marks',[],@(x) isnumeric(x) || iscell(x) );
          p.addParamValue('window',[],@isnumeric);
          p.addParamValue('offset',[],@isnumeric);
-         p.addParamValue('tAbs',0,@isnumeric);
+         p.addParamValue('tStart',0,@isnumeric);
+         p.addParamValue('tEnd',[],@isnumeric);
          p.parse(varargin{:});
          
          self.name = p.Results.name;
-         self.times = sort(p.Results.times(:)');
          
-         % Create a dictionary
+         % Sort event times
+         [eventTimes,tInd] = sort(p.Results.times(:)');
+
+         % Sort corresponding marks
+         if ~isempty(p.Results.marks)
+            eventMarks = p.Results.marks(tInd);
+         else
+            eventMarks = [];
+         end
+         
+         % Define the start and end times of the process
+         if p.Results.tStart == 0
+            self.tStart = 0;
+         else
+            self.tStart = p.Results.tStart;
+         end
+         if isempty(p.Results.tEnd)
+            self.tEnd = eventTimes(end);
+         else
+            self.tEnd = p.Results.tEnd;
+         end
+         
+         % Discard event times (& marks) outside of start and end
+         ind = (eventTimes>=self.tStart) & (eventTimes<=self.tEnd);
+         %self.times = eventTimes(ind);
+         if isempty(ind)
+            self.times = [];
+         else
+            self.times = eventTimes(ind);
+         end
+         if isempty(eventMarks)
+            %self.marks = [];
+            self.marks = containers.Map();
+         else
+            %self.marks = eventMarks(ind);
+            if iscell(eventMarks)
+               self.marks = containers.Map(1:length(ind),eventMarks(ind));
+            else
+               self.marks = containers.Map(1:length(ind),{eventMarks(ind)});
+            end
+         end
+         
+         % Create an info dictionary
          if isempty(p.Results.info)
             self.info = containers.Map();
          else
@@ -226,24 +285,15 @@ classdef pointProcess
             self.info = containers.Map(infoKeys,p.Results.info);
          end
          
-         % Is this a marked point process?
-         % TODO sort marks according to times!!!
-         if ~isempty(p.Results.marks)
-            marks = p.Results.marks(:);
-            if sum(size(marks)==size(self.times)) == 2
-               self.marks = marks;
-            else
-               self.marks = [];
-            end
-         end
-         
-         if isempty(p.Results.times)
+         % Set the window
+         if isempty(self.times)
             self.window = [-inf inf];
          else
             if isempty(p.Results.window)
                self.window = [min(self.times) max(self.times)];
             elseif numel(p.Results.window) == 2
-               self.window = self.checkWindow(p.Results.window);
+               %self.window = self.checkWindow(p.Results.window);
+               self.window = checkWindow(p.Results.window);
             else
                error('pointProcess constructor requires a single window');
             end
@@ -251,23 +301,7 @@ classdef pointProcess
 
          % Tuck away the original window for resetting
          self.window_ = self.window;
-         
-         % TODO allow offset parameter?
-         
-         % TODO, don't discard any data, leave it to user
-         % allow multiple windows on input
-         % Discard event times (& marks) outside of user-supplied window
-         ind = (self.times>=self.window(1)) & (self.times<=self.window(2));
-         self.times = self.times(ind);
-         if ~isempty(self.marks)
-            self.marks = self.marks(ind);
-         end
-         
-         if p.Results.tAbs == 0
-            self.tAbs = 0;
-         else
-            self.tAbs = p.Results.tAbs;
-         end
+         self.offset_ = self.offset;
          
       end
       
@@ -276,7 +310,7 @@ classdef pointProcess
          % Set the window property
          %
          % Does not work for vector inputs, need setWindow()
-         self.window = self.checkWindow(window,size(window,1));
+         self.window = checkWindow(window,size(window,1));
          % Reset offset, which is always relative to window
          self.offset = 'windowIsReset';
          % Expensive, only call when windows are changed
@@ -296,16 +330,16 @@ classdef pointProcess
          %
          % Does not work for vector inputs, need setOffset()
          if strcmp(offset,'windowIsReset')
-            self.offset = zeros(size(self.window,1));
+            self.offset = zeros(size(self.window,1),1);
          else
-            newOffset = self.checkOffset(offset,size(self.window,1));
+            newOffset = checkOffset(offset,size(self.window,1));
             % Reset offset, which is always relative to window
             self = offsetTimes(self,true);
             self.offset = newOffset;
             % Only call when offsets are changed
             self = offsetTimes(self);
          end
-      end      
+      end
       
       function self = windowTimes(self)
          n = length(self);
@@ -314,14 +348,21 @@ classdef pointProcess
             times = self.times;
             window = self.window;
             windowedTimes = cell(nWindow,1);
-            windowedIndex = cell(nWindow,1);
+            windowIndex = cell(nWindow,1);
+            isValidWindow = false(nWindow,1);
             for i = 1:nWindow
                ind = (times>=window(i,1)) & (times<=window(i,2));
                windowedTimes{i,1} = times(ind);
-%               windowedIndex{i,1} = find(ind);
+               windowIndex{i,1} = find(ind);
+               if (window(i,1)>=self.tStart) && (window(i,2)<=self.tEnd)
+                  isValidWindow(i) = true;
+               else
+                  isValidWindow(i) = false;
+               end
             end
             self.windowedTimes = windowedTimes;
-%            self.windowedIndex = windowedIndex;
+            self.windowIndex = windowIndex;
+            self.isValidWindow = isValidWindow;
          else
             % Handle array of objects??
          end
@@ -374,29 +415,29 @@ classdef pointProcess
          end
       end
       
-      function rate = get.rate(self)
+      function rate = get.lambda(self)
          % # of events within windows
          times = self.windowedTimes;
          for i = 1:length(times)
-            rate(i,1) = length(times{i}) / (self.window(2,i)-self.window(1,i));
+            rate(i,1) = length(times{i}) / (self.window(i,2)-self.window(i,1));
          end
       end
 
-      function minTime = get.minTime(self)
-         % Minimum event time within windows
-         times = self.windowedTimes;
-         for i = 1:length(times)
-            minTime(i,1) = min(times{i});
-         end
-      end
-      
-      function maxTime = get.maxTime(self)
-         % Maximum event time within windows
-         times = self.windowedTimes;
-         for i = 1:length(times)
-            maxTime(i,1) = max(times{i});
-         end
-      end
+%       function minTime = get.minTime(self)
+%          % Minimum event time within windows
+%          times = self.windowedTimes;
+%          for i = 1:length(times)
+%             minTime(i,1) = min(times{i});
+%          end
+%       end
+%       
+%       function maxTime = get.maxTime(self)
+%          % Maximum event time within windows
+%          times = self.windowedTimes;
+%          for i = 1:length(times)
+%             maxTime(i,1) = max(times{i});
+%          end
+%       end
 
      %       function intervals = get.intervals(self)
 %          % Interevent interval representation
@@ -597,7 +638,10 @@ classdef pointProcess
             elseif any(x.marks ~= y.marks)
                bool = false;
                return;
-            elseif x.tAbs ~= y.tAbs
+            elseif x.tStart ~= y.tStart
+               bool = false;
+               return;
+            elseif x.tEnd ~= y.tEnd
                bool = false;
                return;
             else
@@ -610,22 +654,6 @@ classdef pointProcess
    end
    
    methods(Static, Access = public)
-      
-      function validOffset = checkOffset(offset,n)
-         % Error checking for offset
-         if nargin == 1
-            n = 1;
-         end
-         validOffset = checkOffset(offset,n);
-      end
-      
-      function validWindow = checkWindow(window,n)
-         % Error checking for window
-         if nargin == 1
-            n = 1;
-         end
-         validWindow = checkWindow(window,n);
-      end
    end
    
 end
