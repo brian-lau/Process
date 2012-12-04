@@ -93,6 +93,20 @@
 %
 % window should have the option to destroy data?
 
+% OBJECT ARRAYS
+% standard getters seems to sequentially call their method on
+% each element of the object array
+% calling a standard setters raises an error
+%   spk2.offset = 1
+%   But it turns out you can use deal, which iterates over each element
+%   [spk2.offset] = deal(1,10) % different for each element
+%   t = num2cell([1 10]);
+%   [spk2.offset] = deal(x{:}) % same as above
+%   [spk2.offset] = deal(13) % same for each element
+%  
+% calling other methods just passes in the entire object array...
+%
+
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
@@ -190,7 +204,7 @@ classdef pointProcess
    end
       
       
-   properties(GetAccess = private, SetAccess = immutable)
+   properties(GetAccess = public, SetAccess = immutable)
       % Original [min max] time window of interest
       window_
       
@@ -426,11 +440,11 @@ classdef pointProcess
          end
       end
       
-      function rate = get.lambda(self)
+      function lambda = get.lambda(self)
          % # of events within windows
          times = self.windowedTimes;
          for i = 1:length(times)
-            rate(i,1) = length(times{i}) / (self.window(i,2)-self.window(i,1));
+            lambda(i,1) = length(times{i}) / (self.window(i,2)-self.window(i,1));
          end
       end
 
@@ -476,31 +490,51 @@ classdef pointProcess
 %       end
 
       %% Functions
+      function self = addInfo(self)
+         % key-value addition to info property
+      end
+      function self = removeInfo(self)
+         % key-value deletion to info property
+      end
       function self = chop(self,window)
-         % if window passed in
-         %keyboard
-         % else we will chop based on the current windows
-         nWindow = size(self.window,1);
-         if nWindow == 1
-            return;
+         % TODO
+         % can we rechop?
+         %     yes, not sure its useful, but i guess it should work.
+         %     eg., chop first by trials, then chop relative to an event
+         %     within each trial?
+         % can we reconstruct? ie, coalesce back to original?
+         %     no, chop allows overlapping or gapped windows, so there is
+         %     no restriction that the data can be reconstructed
+         %
+         keyboard
+         if nargin == 2
+            
          else
-         % create object array the size needed
-         % loop and construct
-            for i = 1:nWindow
-               obj(i) = pointProcess(...
-                  'name',self.name,...
-                  'info',self.info,...
-                  'times',self.windowedTimes{i},...
-                  'marks',self.marks,...
-                  'tStart',self.window(i,1),...
-                  'tEnd',self.window(i,2),...
-                  'window',self.window(i,:),...
-                  'offset',self.offset(i)...
-                  );
+            % else we will chop based on the current windows
+            nWindow = size(self.window,1);
+            if nWindow == 1
+               return;
+            else
+               for i = 1:nWindow
+                  % Leave info alone
+                  % Shallow copy marks?
+                  % how to deal with offset, should zero to window, but
+                  % store windowStart as offset_? perhaps add original
+                  % offset_?
+                  obj(i) = pointProcess(...
+                     'name',self.name,...
+                     'info',self.info,...
+                     'times',self.windowedTimes{i},...
+                     'marks',self.marks,...
+                     'tStart',self.window(i,1),...
+                     'tEnd',self.window(i,2),...
+                     'window',self.window(i,:),...
+                     'offset',self.offset(i)...
+                     );
+               end
+               self = obj;
             end
-            self = obj;
          end
-         
       end
       
       function h = plot(self,varargin)
@@ -570,7 +604,7 @@ classdef pointProcess
          % <a href="matlab:help('getPsth')">getPsth</a>
 
          % TODO
-         % When timeUnits functioning, need to reconcile units with bandwidth
+         % When self.unit functioning, need to reconcile units with bandwidth
          % here
          % check output when vector input is a row
          
