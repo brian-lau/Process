@@ -105,6 +105,7 @@
 %   [spk2.offset] = deal(13) % same for each element
 %  
 % calling other methods just passes in the entire object array...
+% which means that all other methods must handle object arrays
 %
 
 classdef pointProcess
@@ -136,30 +137,14 @@ classdef pointProcess
    end
    
     properties(GetAccess = public, SetAccess = immutable)
-      % Time that event times are relative to when object is constructed
-%      tAbs
-      
-      % This should replace tAbs
-      % Should default to zero
+      % Start time of point process, defines origin (defaults to zero)
       tStart
       
-      % this will typically be the censor time? Why is it useful, well it
-      % allows you to distinguish no events from no data
-      % should default to last event time
+      % End time of point process (defaults to last event time)
       tEnd
-      
-      % 'right', 'left' or 'interval', possibly useful?
-      %censor = 'interval';
-      
     end
     
-    properties(GetAccess = public, SetAccess = public)
-
-      % This is likely just for info, not useful to convert
-      % perhaps unnecessary or nonsense if marks is itself an array of
-      % objects?
-%      markUnits = 'none';
- 
+    properties(GetAccess = public, SetAccess = public) 
       % [min max] time window of interest
       window
       
@@ -170,23 +155,14 @@ classdef pointProcess
    % These dependent properties all apply the window property
    properties (GetAccess = public, SetAccess = private, Dependent = true, Transient = true)
       % # of events within window
-      count
-      
-%       % count/window Hz?
-%       lambda
-      
-      % Minimum event time within window
- %     minTime
-      
-      % Minimum event time within window
- %     maxTime
+      count      
    end
    
    % Also window-dependent, but only calculated on window change
    % Possibly set Hidden = true, or define display method to hide?
    % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
    properties (SetAccess = private, Transient = true)
-      %
+      % Should be function handle? defines intensity representations
       lambdaEstimator = 'bin';
       
       % count/window Hz?
@@ -198,8 +174,7 @@ classdef pointProcess
       % Cell array of indices into event times for times contained in window
       windowIndex
       
-      % Boolean indicating whether or not window lies within start and end
-      % time of process
+      % Boolean for whether or not window lies within tStart and tEnd
       isValidWindow
    end
       
@@ -344,8 +319,7 @@ classdef pointProcess
       
       function self = setInclusiveWindow(self)
          % Set windows to earliest and latest event times
-         n = length(self);
-         for i = 1:n
+         for i = 1:numel(self)
             self(i).window = [min(self(i).times) max(self(i).times)];
          end
       end
@@ -448,23 +422,7 @@ classdef pointProcess
          end
       end
 
-%       function minTime = get.minTime(self)
-%          % Minimum event time within windows
-%          times = self.windowedTimes;
-%          for i = 1:length(times)
-%             minTime(i,1) = min(times{i});
-%          end
-%       end
-%       
-%       function maxTime = get.maxTime(self)
-%          % Maximum event time within windows
-%          times = self.windowedTimes;
-%          for i = 1:length(times)
-%             maxTime(i,1) = max(times{i});
-%          end
-%       end
-
-     %       function intervals = get.intervals(self)
+%       function intervals = get.intervals(self)
 %          % Interevent interval representation
 % %         times = getTimes(self,self.window);
 % %         intervals = diff(times{1});
@@ -506,7 +464,6 @@ classdef pointProcess
          %     no, chop allows overlapping or gapped windows, so there is
          %     no restriction that the data can be reconstructed
          %
-         keyboard
          if nargin == 2
             
          else
@@ -636,10 +593,12 @@ classdef pointProcess
             % should merge the objects
             % order will matter, how to deal with names & info?
          elseif isa(x,'pointProcess') && isnumeric(y)
-            x.offset = y;
+            %x.offset = y;
+            [x.offset] = deal(y);
             obj = x;
          elseif isa(y,'pointProcess') && isnumeric(x)
-            y.offset = x;
+            %y.offset = x;
+            [y.offset] = deal(x);
             obj = y;
          else
             error('Plus not defined for inputs');
@@ -652,10 +611,12 @@ classdef pointProcess
             % not done yet
             % should delete the common times from object
          elseif isa(x,'pointProcess') && isnumeric(y)
-            x.offset = -y;
+            %x.offset = -y;
+            [x.offset] = deal(-y);
             obj = x;
          elseif isa(y,'pointProcess') && isnumeric(x)
-            y.offset = -x;
+            %y.offset = -x;
+            [y.offset] = deal(-x);
             obj = y;
          else
             error('Minus not defined for inputs');
