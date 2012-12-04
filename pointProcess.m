@@ -318,6 +318,25 @@ classdef pointProcess
          self = windowTimes(self);
       end
       
+      function self = setWindow(self,window)
+         % Set the window property
+         % Allows array object input, 
+         % window must either be
+         % [1 x 2] vector applied to all elements of the object array
+         % {nObjs x 1} cell vector containing windows for each element of
+         %     the object array
+         n = numel(self);
+         if iscell(window)
+            window = checkWindow(window,n);
+            [self.window] = deal(window{:});
+         elseif isnumeric(window)
+            window = checkWindow(window);
+            [self.window] = deal(window);
+         else
+            error('pointProcess:setWindow:InputFormat','Bad window');
+         end
+      end
+      
       function self = setInclusiveWindow(self)
          % Set windows to earliest and latest event times
          for i = 1:numel(self)
@@ -338,6 +357,25 @@ classdef pointProcess
             self.offset = newOffset;
             % Only call when offsets are changed
             self = offsetTimes(self);
+         end
+      end
+      
+      function self = setOffset(self,offset)
+         % Set the offset property
+         % Allows array object input, 
+         % offset must either be
+         % scalar applied to all elements of the object array
+         % {nObjs x 1} cell vector containing offsets for each element of
+         %     the object array
+         n = numel(self);
+         if iscell(offset)
+            offset = checkOffset(offset,n);
+            [self.offset] = deal(offset{:});
+         elseif isnumeric(offset)
+            offset = checkOffset(offset);
+            [self.offset] = deal(offset);
+         else
+            error('pointProcess:setOffset:InputFormat','Bad offset');
          end
       end
       
@@ -466,6 +504,7 @@ classdef pointProcess
          %     no, chop allows overlapping or gapped windows, so there is
          %     no restriction that the data can be reconstructed
          %
+         % need to handle case where there is an offset?, 
          if nargin == 2
             
          else
