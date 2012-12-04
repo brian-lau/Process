@@ -378,53 +378,7 @@ classdef pointProcess
             error('pointProcess:setOffset:InputFormat','Bad offset');
          end
       end
-      
-      function self = windowTimes(self)
-         n = length(self);
-         if n == 1
-            nWindow = size(self.window,1);
-            times = self.times;
-            window = self.window;
-            windowedTimes = cell(nWindow,1);
-            windowIndex = cell(nWindow,1);
-            isValidWindow = false(nWindow,1);
-            for i = 1:nWindow
-               ind = (times>=window(i,1)) & (times<=window(i,2));
-               windowedTimes{i,1} = times(ind);
-               windowIndex{i,1} = find(ind);
-               if (window(i,1)>=self.tStart) && (window(i,2)<=self.tEnd)
-                  isValidWindow(i) = true;
-               else
-                  isValidWindow(i) = false;
-               end
-            end
-            self.windowedTimes = windowedTimes;
-            self.windowIndex = windowIndex;
-            self.isValidWindow = isValidWindow;
-         else
-            % Handle array of objects??
-         end
-      end
-      
-      function self = offsetTimes(self,reset)
-         if nargin == 1
-            reset = false;
-         end
-         n = length(self);
-         if n == 1
-            if reset 
-               offset = -self.offset;
-            else
-               offset = self.offset;
-            end
-            for i = 1:length(offset)
-               self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
-            end
-         else
-            % Handle array of objects??
-         end
-      end
-            
+                  
       function self = transform(self,functionHandle,varargin)
          keyboard
          
@@ -723,7 +677,54 @@ classdef pointProcess
       end
    end
    
-   methods(Static, Access = public)
+   methods(Access = private)
+      function self = windowTimes(self)
+         % TODO Make this a private function
+         %n = length(self);
+         %if n == 1
+            nWindow = size(self.window,1);
+            times = self.times;
+            window = self.window;
+            windowedTimes = cell(nWindow,1);
+            windowIndex = cell(nWindow,1);
+            isValidWindow = false(nWindow,1);
+            for i = 1:nWindow
+               ind = (times>=window(i,1)) & (times<=window(i,2));
+               windowedTimes{i,1} = times(ind);
+               windowIndex{i,1} = find(ind);
+               if (window(i,1)>=self.tStart) && (window(i,2)<=self.tEnd)
+                  isValidWindow(i) = true;
+               else
+                  isValidWindow(i) = false;
+               end
+            end
+            self.windowedTimes = windowedTimes;
+            self.windowIndex = windowIndex;
+            self.isValidWindow = isValidWindow;
+         %else
+            % Handle array of objects??
+         %end
+      end
+      
+      function self = offsetTimes(self,reset)
+         % TODO Make this a private function
+         if nargin == 1
+            reset = false;
+         end
+         %n = length(self);
+         %if n == 1
+            if reset 
+               offset = -self.offset;
+            else
+               offset = self.offset;
+            end
+            for i = 1:length(offset)
+               self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
+            end
+         %else
+         %   % Handle array of objects??
+         %end
+      end
    end
    
 end
