@@ -91,7 +91,7 @@
 % is a natural way to keep the mark together with it's time. Problem is
 % there will be many events, we will run into penalties for object access.
 %
-% window should have the option to destroy data?
+% window should have the option to destroy data? implement in chop method
 
 % OBJECT ARRAYS
 % standard getters seems to sequentially call their method on
@@ -238,6 +238,8 @@ classdef pointProcess
          end
          
          % Define the start and end times of the process
+         % TODO note the possibility of negative times passed in, is this
+         % default sensible???
          if p.Results.tStart == 0
             self.tStart = 0;
          else
@@ -302,8 +304,7 @@ classdef pointProcess
          % Tuck away the original window for resetting
          self.window_ = self.window;
          self.offset_ = self.offset;
-         
-      end
+      end % contstructor
       
       %% Set functions
       function self = set.window(self,window)
@@ -456,6 +457,7 @@ classdef pointProcess
       end
       function self = chop(self,window)
          % TODO
+         % marks create new map for each window
          % can we rechop?
          %     yes, not sure its useful, but i guess it should work.
          %     eg., chop first by trials, then chop relative to an event
@@ -470,6 +472,7 @@ classdef pointProcess
             % else we will chop based on the current windows
             nWindow = size(self.window,1);
             if nWindow == 1
+               % restrict event times to window? destructive
                return;
             else
                for i = 1:nWindow
@@ -593,11 +596,9 @@ classdef pointProcess
             % should merge the objects
             % order will matter, how to deal with names & info?
          elseif isa(x,'pointProcess') && isnumeric(y)
-            %x.offset = y;
             [x.offset] = deal(y);
             obj = x;
          elseif isa(y,'pointProcess') && isnumeric(x)
-            %y.offset = x;
             [y.offset] = deal(x);
             obj = y;
          else
@@ -611,11 +612,9 @@ classdef pointProcess
             % not done yet
             % should delete the common times from object
          elseif isa(x,'pointProcess') && isnumeric(y)
-            %x.offset = -y;
             [x.offset] = deal(-y);
             obj = x;
          elseif isa(y,'pointProcess') && isnumeric(x)
-            %y.offset = -x;
             [y.offset] = deal(-x);
             obj = y;
          else
@@ -630,6 +629,7 @@ classdef pointProcess
          % TODO
          % check units ?
          % maybe a 'strict' flag to compare window-dependent properties?
+         % handle case where both inputs are a vector?
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % Handle case where one input is a vector
             nX = numel(x);
