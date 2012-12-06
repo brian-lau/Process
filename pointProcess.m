@@ -107,6 +107,9 @@
 % calling other methods just passes in the entire object array...
 % which means that all other methods must handle object arrays
 %
+% Overload other operators? 
+% / or ./ to chop, 
+% < > <= >= could be used to restrict eventTimes (set window)?
 
 classdef pointProcess
 %
@@ -121,7 +124,7 @@ classdef pointProcess
       times
 
       % Time representation 
-%      unit = 'seconds';
+      unit = 'seconds';
       
       % If marked point process, vector of associated magnitudes
       % maybe this should be a container? use keys that correspond either
@@ -166,7 +169,7 @@ classdef pointProcess
       lambdaEstimator = 'bin';
       
       % count/window Hz?
-      lambda
+%      lambda
       
       % Cell array of event times contained in window
       windowedTimes
@@ -204,26 +207,35 @@ classdef pointProcess
          %            the window will be DISCARDED.
          % tAbs     - Time that event times are relative
          
-         p = inputParser;
-         p.KeepUnmatched= false;
-         p.FunctionName = 'pointProcess constructor';
-         p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
-         p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
-         p.addParamValue('infoKeys',[],@iscell);
-         p.addParamValue('times',NaN,@isnumeric);
-         p.addParamValue('marks',[],@(x) isnumeric(x) || iscell(x) || isa(x,'containers.Map'));
-         p.addParamValue('window',[],@isnumeric);
-         p.addParamValue('offset',[],@isnumeric);
-         p.addParamValue('tStart',0,@isnumeric);
-         p.addParamValue('tEnd',[],@isnumeric);
-         p.parse(varargin{:});
+         if nargin == 1
+            % TODO allow struct input, perhaps even obj input?
+            if false
+            else
+               error('pointProcess:pointProcess:InputFormat',...
+                  'When passing one input, it must be a struct or another pointProcess');
+            end
+         else
+            p = inputParser;
+            p.KeepUnmatched= false;
+            p.FunctionName = 'pointProcess constructor';
+            p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
+            p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
+            p.addParamValue('infoKeys',[],@iscell);
+            p.addParamValue('times',NaN,@isnumeric);
+            p.addParamValue('marks',[],@(x) isnumeric(x) || iscell(x) || isa(x,'containers.Map'));
+            p.addParamValue('window',[],@isnumeric);
+            p.addParamValue('offset',[],@isnumeric);
+            p.addParamValue('tStart',0,@isnumeric);
+            p.addParamValue('tEnd',[],@isnumeric);
+            p.parse(varargin{:});
+         end
          
          self.name = p.Results.name;
          
          % Sort event times
-         [eventTimes,tInd] = sort(p.Results.times(:)');
+         [eventTimes,tInd] = unique(p.Results.times(:)');
 
-         % Sort corresponding marks
+         % Sort corresponding marks if not already a dictionary
          if isempty(p.Results.marks)
             eventMarks = [];
          elseif isa(p.Results.marks,'containers.Map')
@@ -289,22 +301,21 @@ classdef pointProcess
          
          % Set the window
          if isempty(self.times)
-            self.window = [-inf inf];
+            self.window = [NaN NaN];
          else
             if isempty(p.Results.window)
                self.window = [min(self.times) max(self.times)];
             elseif numel(p.Results.window) == 2
-               %self.window = self.checkWindow(p.Results.window);
                self.window = checkWindow(p.Results.window);
             else
                error('pointProcess constructor requires a single window');
             end
          end
 
-         % Tuck away the original window for resetting
+         % Store original window and offset for resetting
          self.window_ = self.window;
          self.offset_ = self.offset;
-      end % contstructor
+      end % constructor
       
       %% Set functions
       function self = set.window(self,window)
@@ -320,11 +331,15 @@ classdef pointProcess
       
       function self = setWindow(self,window)
          % Set the window property
+         %
          % Allows array object input, 
          % window must either be
          % [1 x 2] vector applied to all elements of the object array
          % {nObjs x 1} cell vector containing windows for each element of
          %     the object array
+         %
+         % SEE ALSO
+         % window
          n = numel(self);
          if iscell(window)
             window = checkWindow(window,n);
@@ -407,13 +422,13 @@ classdef pointProcess
          end
       end
       
-      function lambda = get.lambda(self)
-         % # of events within windows
-         times = self.windowedTimes;
-         for i = 1:length(times)
-            lambda(i,1) = length(times{i}) / (self.window(i,2)-self.window(i,1));
-         end
-      end
+%       function lambda = get.lambda(self)
+%          % # of events within windows
+%          times = self.windowedTimes;
+%          for i = 1:length(times)
+%             lambda(i,1) = length(times{i}) / (self.window(i,2)-self.window(i,1));
+%          end
+%       end
 
 %       function intervals = get.intervals(self)
 %          % Interevent interval representation
@@ -468,6 +483,7 @@ classdef pointProcess
                % restrict event times to window? destructive
                return;
             else
+               obj(1:nWindow) = pointProcess();
                for i = 1:nWindow
                   % Leave info alone
                   % Shallow copy marks?
@@ -547,7 +563,7 @@ classdef pointProcess
          else
             [h,yOffset] = plotRaster(times,p.Results,params);
             xlabel('Time');
-            %xlabel(['Time (' self.timeUnits ')']);
+            %xlabel(['Time (' self.unit ')']);
          end         
       end
       
@@ -679,51 +695,39 @@ classdef pointProcess
    
    methods(Access = private)
       function self = windowTimes(self)
-         % TODO Make this a private function
-         %n = length(self);
-         %if n == 1
-            nWindow = size(self.window,1);
-            times = self.times;
-            window = self.window;
-            windowedTimes = cell(nWindow,1);
-            windowIndex = cell(nWindow,1);
-            isValidWindow = false(nWindow,1);
-            for i = 1:nWindow
-               ind = (times>=window(i,1)) & (times<=window(i,2));
-               windowedTimes{i,1} = times(ind);
-               windowIndex{i,1} = find(ind);
-               if (window(i,1)>=self.tStart) && (window(i,2)<=self.tEnd)
-                  isValidWindow(i) = true;
-               else
-                  isValidWindow(i) = false;
-               end
+         nWindow = size(self.window,1);
+         times = self.times;
+         window = self.window;
+         windowedTimes = cell(nWindow,1);
+         windowIndex = cell(nWindow,1);
+         isValidWindow = false(nWindow,1);
+         for i = 1:nWindow
+            ind = (times>=window(i,1)) & (times<=window(i,2));
+            windowedTimes{i,1} = times(ind);
+            windowIndex{i,1} = find(ind);
+            if (window(i,1)>=self.tStart) && (window(i,2)<=self.tEnd)
+               isValidWindow(i) = true;
+            else
+               isValidWindow(i) = false;
             end
-            self.windowedTimes = windowedTimes;
-            self.windowIndex = windowIndex;
-            self.isValidWindow = isValidWindow;
-         %else
-            % Handle array of objects??
-         %end
+         end
+         self.windowedTimes = windowedTimes;
+         self.windowIndex = windowIndex;
+         self.isValidWindow = isValidWindow;
       end
       
       function self = offsetTimes(self,reset)
-         % TODO Make this a private function
          if nargin == 1
             reset = false;
          end
-         %n = length(self);
-         %if n == 1
-            if reset 
-               offset = -self.offset;
-            else
-               offset = self.offset;
-            end
-            for i = 1:length(offset)
-               self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
-            end
-         %else
-         %   % Handle array of objects??
-         %end
+         if reset
+            offset = -self.offset;
+         else
+            offset = self.offset;
+         end
+         for i = 1:length(offset)
+            self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
+         end
       end
    end
    
