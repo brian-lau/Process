@@ -136,29 +136,34 @@ classdef pointProcess
       % images would be different pointProcess objects? What if you do
       % revcorr and want to store each stimulus (ori, sf, color, etc)? then
       % each mark would contain a structure)
+      %
+      % Does this really need to be a map? I essentially use it as a list,
+      % since the key values are integer index. would be more useful if
+      % keys were the actual times?
       marks
    end
    
-    properties(GetAccess = public, SetAccess = immutable)
+   properties(GetAccess = public, SetAccess = private)
+   %properties(GetAccess = public, SetAccess = immutable)
       % Start time of point process, defines origin (defaults to zero)
       tStart
       
       % End time of point process (defaults to last event time)
       tEnd
-    end
-    
-    properties(GetAccess = public, SetAccess = public) 
+   end
+   
+   properties(GetAccess = public, SetAccess = public)
       % [min max] time window of interest
       window
       
       % offset of event times relative to window
       offset
    end
-
+   
    % These dependent properties all apply the window property
    properties (GetAccess = public, SetAccess = private, Dependent = true, Transient = true)
       % # of events within window
-      count      
+      count
    end
    
    % Also window-dependent, but only calculated on window change
@@ -166,9 +171,10 @@ classdef pointProcess
    % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
    properties (SetAccess = private, Transient = true)
       % Should be function handle? defines intensity representations
-      lambdaEstimator = 'bin';
+      lambdaEstimator = '';
       
-      % count/window Hz?
+      % count/window Hz? intensity should be a class, subclass of
+      % sampledProcess
 %      lambda
       
       % Cell array of event times contained in window
@@ -218,7 +224,8 @@ classdef pointProcess
             p = inputParser;
             p.KeepUnmatched= false;
             p.FunctionName = 'pointProcess constructor';
-            p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
+            p.addParamValue('name','',@ischar);
+            %p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
             p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
             p.addParamValue('infoKeys',[],@iscell);
             p.addParamValue('times',NaN,@isnumeric);
@@ -274,11 +281,13 @@ classdef pointProcess
             self.marks = containers.Map();
          else
             if iscell(eventMarks)
-               self.marks = containers.Map(1:length(ind),eventMarks(ind));
+               %self.marks = containers.Map(1:length(ind),eventMarks(ind));
+               self.marks = containers.Map(eventTimes(ind),eventMarks(ind));
             elseif isa(eventMarks,'containers.Map')
                self.marks = eventMarks;
             else
-               self.marks = containers.Map(1:length(ind),{eventMarks(ind)});
+               %self.marks = containers.Map(1:length(ind),{eventMarks(ind)});
+               self.marks = containers.Map(eventTimes(ind),{eventMarks(ind)});
             end
          end
          
@@ -422,6 +431,50 @@ classdef pointProcess
          end
       end
       
+      function times = getMarkTimes(self)
+         %    return times associated with marks that have these values
+         %    logic = and, or
+         %    values = 'object' 'numeric value' 'string'
+         % criteria, 'key' 'value' 'time
+         values = getMarkValues(self);
+         keyboard
+         
+      end
+      
+%       function self = select(self,)
+%          select(self,'marks','value=''start'''
+%       end
+      function self = selectByTimes(self,window)
+         % Return pointProcess restricted by window
+         % Destructive (ie, discards data outside window)
+         %
+         % TODO handle array input
+         self.window = window;
+         self = chop(self);
+      end
+      
+      function self = selectByWindow()
+         % Should do the above, and make the selectByTimes actually search
+         % for an array of times
+      end
+      
+      function self = selectByMarks(self,value)
+         % search for marks containing value(s) [union]
+         % deleteMarks
+         % will return pointProcess with events that contain mark value
+      end
+      
+      function values = getMarkValues(self)
+         values = self.marks.values;
+      end
+      
+      function self = deleteTimes(self,times)
+         % Remove times and associated marks
+      end
+      function self = deleteMarks(self,keys)
+         % Remove marks and associated times
+      end
+      
 %       function lambda = get.lambda(self)
 %          % # of events within windows
 %          times = self.windowedTimes;
@@ -459,9 +512,11 @@ classdef pointProcess
       function self = addInfo(self)
          % key-value addition to info property
       end
+      
       function self = removeInfo(self)
          % key-value deletion to info property
       end
+      
       function self = chop(self,window)
          % TODO
          % marks create new map for each window
@@ -479,33 +534,49 @@ classdef pointProcess
          else
             % else we will chop based on the current windows
             nWindow = size(self.window,1);
-            if nWindow == 1
+            if 0%nWindow == 1
                % restrict event times to window? destructive
                return;
             else
                obj(1:nWindow) = pointProcess();
                for i = 1:nWindow
                   % Leave info alone
-                  % Shallow copy marks?
+                  % Copy marks in window to new object, resetting keys
+                  temp = self.windowIndex{i};
+                  marks = copyMap(self.marks,num2cell(temp),...
+                     num2cell(temp - temp(1) + 1));
                   % how to deal with offset, should zero to window, but
                   % store windowStart as offset_? perhaps add original
                   % offset_?
-                  obj(i) = pointProcess(...
-                     'name',self.name,...
-                     'info',self.info,...
-                     'times',self.windowedTimes{i},...
-                     'marks',self.marks,...
-                     'tStart',self.window(i,1),...
-                     'tEnd',self.window(i,2),...
-                     'window',self.window(i,:),...
-                     'offset',self.offset(i)...
-                     );
+%                  keyboard
+%                   obj(i) = pointProcess(...
+%                      'name',self.name,...
+%                      'info',self.info,...
+%                      'times',self.windowedTimes{i},...
+%                      'marks',marks,...
+%                      'tStart',self.window(i,1),...
+%                      'tEnd',self.window(i,2),...
+%                      'window',self.window(i,:),...
+%                      'offset',self.offset(i)...
+%                      );
+                  
+                  % II. Avoid constructor, faster, but some properties
+                  % cannot be immutable
+                  obj(i).name = self.name;
+                  obj(i).info = self.info;
+                  obj(i).times = self.windowedTimes{i};
+                  obj(i).marks = marks;
+                  obj(i).tStart = self.window(i,1);
+                  obj(i).tEnd = self.window(i,2);
+                  obj(i).window = self.window(i,:);
+                  obj(i).offset = self.offset(i);
+                  % Need to set offset_ and window_
                end
                self = obj;
             end
          end
       end
-      
+            
       function h = plot(self,varargin)
          % Plot times & counting process
          % TODO 
