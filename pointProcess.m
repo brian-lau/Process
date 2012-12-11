@@ -140,7 +140,7 @@ classdef pointProcess
       % Does this really need to be a map? I essentially use it as a list,
       % since the key values are integer index. would be more useful if
       % keys were the actual times?
-      marks
+      map
    end
    
    properties(GetAccess = public, SetAccess = private)
@@ -207,7 +207,7 @@ classdef pointProcess
          % info     - cell array of information about process
          % infoKeys - cell array of strings labelling info elements
          % times    - Vector of event times
-         % marks    - Corresponding vector of magnitudes for "marked" process
+         % map    - Corresponding vector of magnitudes for "marked" process
          % window   - Defaults to window that includes all event times,
          %            If a smaller window is passed in, event times outside
          %            the window will be DISCARDED.
@@ -229,7 +229,7 @@ classdef pointProcess
             p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
             p.addParamValue('infoKeys',[],@iscell);
             p.addParamValue('times',NaN,@isnumeric);
-            p.addParamValue('marks',[],@(x) isnumeric(x) || iscell(x) || isa(x,'containers.Map'));
+            p.addParamValue('map',[],@(x) isnumeric(x) || iscell(x) || isa(x,'containers.Map'));
             p.addParamValue('window',[],@isnumeric);
             p.addParamValue('offset',[],@isnumeric);
             p.addParamValue('tStart',0,@isnumeric);
@@ -240,20 +240,23 @@ classdef pointProcess
          self.name = p.Results.name;
          
          % Sort event times
+         % TODO perhaps don't use unique, as some events may all occur at
+         % the same time? (eg., time-insensitive event codes strobed at the
+         % same time)
          [eventTimes,tInd] = unique(p.Results.times(:)');
 
-         % Sort corresponding marks if not already a dictionary
-         if isempty(p.Results.marks)
-            eventMarks = [];
-         elseif isa(p.Results.marks,'containers.Map')
-            if all(isKey(p.Results.marks,num2cell(tInd)))
+         % Sort corresponding map if not already a dictionary
+         if isempty(p.Results.map)
+            eventMap = [];
+         elseif isa(p.Results.map,'containers.Map')
+            if all(isKey(p.Results.map,num2cell(eventTimes)))%all(isKey(p.Results.map,num2cell(tInd)))
                % TODO THERE IS NO SORTING HERE? NOT SURE IT MAKES SENSE TO
-               eventMarks = p.Results.marks;
+               eventMap = p.Results.map;
             else
-               error('bad marks dictionary');
+               error('bad map dictionary');
             end
          else
-            eventMarks = p.Results.marks(tInd);
+            eventMap = p.Results.map(tInd);
          end
          
          % Define the start and end times of the process
@@ -270,24 +273,24 @@ classdef pointProcess
             self.tEnd = p.Results.tEnd;
          end
          
-         % Discard event times (& marks) outside of start and end
+         % Discard event times (& map) outside of start and end
          ind = (eventTimes>=self.tStart) & (eventTimes<=self.tEnd);
          if isempty(ind)
             self.times = [];
          else
             self.times = eventTimes(ind);
          end
-         if isempty(eventMarks)
-            self.marks = containers.Map();
+         if isempty(eventMap)
+            self.map = containers.Map();
          else
-            if iscell(eventMarks)
-               %self.marks = containers.Map(1:length(ind),eventMarks(ind));
-               self.marks = containers.Map(eventTimes(ind),eventMarks(ind));
-            elseif isa(eventMarks,'containers.Map')
-               self.marks = eventMarks;
+            if iscell(eventMap)
+               %self.map = containers.Map(1:length(ind),eventMap(ind));
+               self.map = containers.Map(eventTimes(ind),eventMap(ind));
+            elseif isa(eventMap,'containers.Map')
+               self.map = eventMap;
             else
-               %self.marks = containers.Map(1:length(ind),{eventMarks(ind)});
-               self.marks = containers.Map(eventTimes(ind),{eventMarks(ind)});
+               %self.map = containers.Map(1:length(ind),{eventMap(ind)});
+               self.map = containers.Map(eventTimes(ind),{eventMap(ind)});
             end
          end
          
@@ -300,7 +303,7 @@ classdef pointProcess
          else
             if isempty(p.Results.infoKeys)
                for i = 1:length(p.Results.info)
-                  infoKeys{i,1} = ['dim' num2str(i)];
+                  infoKeys{i,1} = ['key' num2str(i)];
                end
             else
                infoKeys = p.Results.infoKeys;
@@ -426,8 +429,12 @@ classdef pointProcess
       function count = get.count(self)
          % # of events within windows
          times = self.windowedTimes;
-         for i = 1:length(times)
-            count(i,1) = length(times{i});
+         if isempty(times)
+            count = 0;
+         else
+            for i = 1:length(times)
+               count(i,1) = length(times{i});
+            end
          end
       end
       
@@ -458,21 +465,64 @@ classdef pointProcess
          % for an array of times
       end
       
-      function self = selectByMarks(self,value)
-         % search for marks containing value(s) [union]
-         % deleteMarks
-         % will return pointProcess with events that contain mark value
+      function array = mapfun(self,fun,varargin)
+         % TODO array input
+         % TODO, how to respect window?
+         % This should return one bool per window...
+         % array = mapfun(fun,{self.map},varargin{:});
+         array = mapfun(fun,self.map,varargin{:});
       end
       
-      function values = getMarkValues(self)
-         values = self.marks.values;
+      function array = infofun(self,fun,varargin)
+         % TODO array input
+         % array = mapfun(fun,{self.map},varargin{:});
+         %keyboard
+         array = mapfun(fun,self.info,varargin{:});
+      end
+      
+%       function bool = hasInfo(self,searchKey,searchVal)
+%          % Boolean indicating whether object has key/value pair in info
+%          keyboard
+%          bool = mapHas({self.info},searchKey,searchVal);
+%       end
+%       function bool = hasMark(self,searchKey,searchVal)
+%          % Boolean indicating whether object has key/value pair in marks
+%          % TODO, how to respect window?
+%          % This should return one bool per window...
+%          % can we do this by giving mapHas a restrictionSet?
+%          bool = mapHas({self.marks},searchKey,searchVal);
+%       end
+%       function self = selectByMarks(self,value)
+%          % search for marks containing value(s) [union]
+%          % deleteMarks
+%          % will return pointProcess with events that contain mark value
+%          % eg, search for trial boundaries
+%       end
+   
+
+      function bool = inWindow()
+         % function to determine if some property is in a window?
+         % don't really need for times, since count does this?
+         % for marks, search by value
+         % eg, self.inWindow('Large/Large cue') should return a boolean
+         % vector (for single object) over windows, or a cell array of
+         % vectors (for multiple objects)
+      end
+      
+      function values = getMapValues(self)
+         % Return all map values
+
+         %values = self.marks.values;
+         values = deCell(arrayfun(@(x) x.map.values,self,'uni',false));
       end
       
       function self = deleteTimes(self,times)
          % Remove times and associated marks
+         % need to call window and offset setters to reassign dependents
       end
       function self = deleteMarks(self,keys)
          % Remove marks and associated times
+         % need to call window and offset setters to reassign dependents
       end
       
 %       function lambda = get.lambda(self)
@@ -542,9 +592,9 @@ classdef pointProcess
                for i = 1:nWindow
                   % Leave info alone
                   % Copy marks in window to new object, resetting keys
-                  temp = self.windowIndex{i};
-                  marks = copyMap(self.marks,num2cell(temp),...
-                     num2cell(temp - temp(1) + 1));
+%                   temp = self.windowIndex{i};                  
+%                   marks = copyMap(self.marks,num2cell(temp),...
+%                      num2cell(temp - temp(1) + 1));
                   % how to deal with offset, should zero to window, but
                   % store windowStart as offset_? perhaps add original
                   % offset_?
@@ -560,12 +610,14 @@ classdef pointProcess
 %                      'offset',self.offset(i)...
 %                      );
                   
+                  temp = self.windowedTimes{i};                  
+                  map = copyMap(self.map,num2cell(temp));
                   % II. Avoid constructor, faster, but some properties
                   % cannot be immutable
                   obj(i).name = self.name;
                   obj(i).info = self.info;
                   obj(i).times = self.windowedTimes{i};
-                  obj(i).marks = marks;
+                  obj(i).map = map;
                   obj(i).tStart = self.window(i,1);
                   obj(i).tEnd = self.window(i,2);
                   obj(i).window = self.window(i,:);
@@ -746,7 +798,7 @@ classdef pointProcess
             elseif any(x.times ~= y.times)
                bool = false;
                return;
-            elseif any(x.marks ~= y.marks)
+            elseif any(x.map ~= y.map)
                bool = false;
                return;
             elseif x.tStart ~= y.tStart
