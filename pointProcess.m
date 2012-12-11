@@ -274,6 +274,7 @@ classdef pointProcess
          end
          
          % Discard event times (& map) outside of start and end
+         % TODO, error when map.Count ~= numel(times)
          ind = (eventTimes>=self.tStart) & (eventTimes<=self.tEnd);
          if isempty(ind)
             self.times = [];
@@ -430,36 +431,27 @@ classdef pointProcess
       function count = get.count(self)
          % # of events within windows
          times = self.windowedTimes;
-         if isempty(times)
-            count = 0;
-         else
-            for i = 1:length(times)
-               count(i,1) = length(times{i});
-            end
-         end
+         count = cellfun(@(x) numel(x),self.windowedTimes);
       end
       
-      function times = getMarkTimes(self)
-         %    return times associated with marks that have these values
-         %    logic = and, or
-         %    values = 'object' 'numeric value' 'string'
-         % criteria, 'key' 'value' 'time
-         values = getMarkValues(self);
-         keyboard
-         
-      end
-      
-%       function self = select(self,)
-%          select(self,'marks','value=''start'''
+%       function times = getMarkTimes(self)
+%          %    return times associated with marks that have these values
+%          %    logic = and, or
+%          %    values = 'object' 'numeric value' 'string'
+%          % criteria, 'key' 'value' 'time
+%          values = getMarkValues(self);
+%          keyboard
+%          
 %       end
-      function self = selectByTimes(self,window)
-         % Return pointProcess restricted by window
-         % Destructive (ie, discards data outside window)
-         %
-         % TODO handle array input
-         self.window = window;
-         self = chop(self);
-      end
+      
+%       function self = selectByTimes(self,window)
+%          % Return pointProcess restricted by window
+%          % Destructive (ie, discards data outside window)
+%          %
+%          % TODO handle array input
+%          self.window = window;
+%          self = chop(self);
+%       end
       
       function self = selectByWindow()
          % Should do the above, and make the selectByTimes actually search
@@ -509,11 +501,7 @@ classdef pointProcess
       
       function bool = doesInfoHaveKey(self,key)
          % Boolean for whether INFO dictionary has key
-         n = numel(self);
-         bool = false(size(self));
-         for i = 1:n
-            bool(i) = self(i).info.isKey(key);
-         end
+         bool = arrayfun(@(x,y) x.info.isKey(y),self,repmat({key},size(self)));
       end
             
       function bool = doesInfoHaveValue(self,value,varargin)
@@ -550,8 +538,8 @@ classdef pointProcess
          % Remove times and associated marks
          % need to call window and offset setters to reassign dependents
       end
-      function self = deleteMarks(self,keys)
-         % Remove marks and associated times
+      function self = deleteMap(self,keys)
+         % Remove map elements and associated times
          % need to call window and offset setters to reassign dependents
       end
       
@@ -684,8 +672,8 @@ classdef pointProcess
       
       function [h,yOffset] = raster(self,varargin)
          % Raster plot
-         % For a full description of the possible parameters, see 
-         % <a href="matlab:help('plotRaster')">plotRaster</a>
+         % For a full description of the possible parameters, 
+         % see also: plotRaster
 
          p = inputParser;
          p.KeepUnmatched= true;
@@ -722,8 +710,8 @@ classdef pointProcess
       
       function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
          % Get history-independent intensity (marginal)
-         % For a full description of the possible parameters, see 
-         % <a href="matlab:help('getPsth')">getPsth</a>
+         % For a full description of the possible parameters, 
+         % see also: getPsth
 
          % TODO
          % When self.unit functioning, need to reconcile units with bandwidth
