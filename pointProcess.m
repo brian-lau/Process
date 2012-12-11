@@ -295,6 +295,7 @@ classdef pointProcess
          end
          
          % Create an info dictionary
+         % TODO, force keys to be chars
          if isempty(p.Results.info)
             self.info = containers.Map();
          elseif isa(p.Results.info,'containers.Map')
@@ -465,7 +466,7 @@ classdef pointProcess
          % for an array of times
       end
       
-      function array = mapfun(self,fun,varargin)
+      function array = mapFun(self,fun,varargin)
          % TODO array input
          % TODO, how to respect window?
          % This should return one bool per window...
@@ -473,24 +474,59 @@ classdef pointProcess
          array = mapfun(fun,self.map,varargin{:});
       end
       
-      function array = infofun(self,fun,varargin)
+      function bool = doesMapHaveValue(self,value,varargin)
+         % Boolean for whether MAP dictionary has value
+         %
+         % It is possible to restrict to keys by passing in additional args
+         % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
+         bool = self.doesHashmapHaveValue({self.map},value,varargin{:});
+      end
+      
+      function array = infoFun(self,fun,varargin)
          % TODO array input
          % array = mapfun(fun,{self.map},varargin{:});
-         %keyboard
          array = mapfun(fun,self.info,varargin{:});
       end
       
-%       function bool = hasInfo(self,searchKey,searchVal)
-%          % Boolean indicating whether object has key/value pair in info
-%          keyboard
-%          bool = mapHas({self.info},searchKey,searchVal);
-%       end
-%       function bool = hasMark(self,searchKey,searchVal)
-%          % Boolean indicating whether object has key/value pair in marks
-%          % TODO, how to respect window?
-%          % This should return one bool per window...
-%          % can we do this by giving mapHas a restrictionSet?
-%          bool = mapHas({self.marks},searchKey,searchVal);
+      function array = getInfoKeys(self,flatBool)
+         % Return array of keys in INFO dictionary
+         %
+         % If flatBool is true (default false), the returned cell array
+         % will be collapsed across all pointProcess elements passed in
+         if nargin < 2
+            flatBool = false;
+         end
+         
+         n = numel(self);
+         array = cell(size(self));
+         for i = 1:n
+            array{i} = self(i).info.keys;
+         end
+         if flatBool
+            array = unique(deCell(array));
+         end
+      end
+      
+      function bool = doesInfoHaveKey(self,key)
+         % Boolean for whether INFO dictionary has key
+         n = numel(self);
+         bool = false(size(self));
+         for i = 1:n
+            bool(i) = self(i).info.isKey(key);
+         end
+      end
+            
+      function bool = doesInfoHaveValue(self,value,varargin)
+         % Boolean for whether INFO dictionary has value
+         %
+         % It is possible to restrict to keys by passing in additional args
+         % self.doesInfoHaveValue(value,'keys',{cell array of keys})
+         bool = self.doesHashmapHaveValue({self.info},value,varargin{:});
+      end
+      
+%       function values = getMapValues(self)
+%          % Return all map values
+%          values = deCell(arrayfun(@(x) x.map.values,self,'uni',false));
 %       end
 %       function self = selectByMarks(self,value)
 %          % search for marks containing value(s) [union]
@@ -509,12 +545,6 @@ classdef pointProcess
          % vectors (for multiple objects)
       end
       
-      function values = getMapValues(self)
-         % Return all map values
-
-         %values = self.marks.values;
-         values = deCell(arrayfun(@(x) x.map.values,self,'uni',false));
-      end
       
       function self = deleteTimes(self,times)
          % Remove times and associated marks
@@ -852,6 +882,16 @@ classdef pointProcess
             self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
          end
       end
+   end
+   methods(Static)
+      function bool = doesHashmapHaveValue(map,value,varargin)
+         % Boolean for whether dictionary has value
+         %
+         % It is possible to restrict to keys by passing in additional args
+         % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
+         temp = mapfun(@(x,y) isequal(x,y),map,'params',{value},varargin{:});
+         bool = cellfun(@(x) any(x),temp);
+      end      
    end
    
 end
