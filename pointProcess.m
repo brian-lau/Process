@@ -310,10 +310,11 @@ classdef pointProcess
          else
             if isempty(p.Results.window)
                self.window = [min(self.times) max(self.times)];
-            elseif numel(p.Results.window) == 2
-               self.window = checkWindow(p.Results.window);
-            else
-               error('pointProcess constructor requires a single window');
+            else%if numel(p.Results.window) == 2
+               self.window = checkWindow(p.Results.window,size(p.Results.window,1));
+%               self.window = checkWindow(p.Results.window);
+%            else
+%               error('pointProcess constructor requires a single window');
             end
          end
 
@@ -424,15 +425,30 @@ classdef pointProcess
          % varargin - Additional arguments, the underlying call is to
          %            cellfun, so inputs should be formatted accordingly
          %
+         % EXAMPLE
+         % % process with different rates in two different windows
+         % spk = pointProcess('times',[rand(100,1) ; 1+rand(100,1)*10],'window',[0 .5;.5 10]);
+         % spk.raster('style','line');
+         %
+         % % Calculate the average inter-event interval in each window
+         % spk.windowFun(@(x) mean(diff(x)))
+         %
+         % % Estimate a PSTH for each window
+         % spk.windowFun(@(x) getPsth(x,0.025),'UniformOutput',false)
+         % 
+         %
          % SEE ALSO
          % cellfun
+         
+         % TODO handle multiple outputs of FUN? Not obvious how to do this,
+         % workaround is to return structs from FUN
          
          if numel(self) == 1
             array = cellfun(fun,self.windowedTimes,varargin{:});
          else
             array = cell(size(self));
             for i = 1:numel(self)
-               array{i} = cellfun(fun,self(i).windowedTimes,varargin{:});
+               array{i} = windowFun(self(i),fun,varargin{:});
             end
          end
       end
