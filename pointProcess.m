@@ -106,13 +106,16 @@
 % Overload other operators? 
 % / or ./ to chop, 
 % < > <= >= could be used to restrict eventTimes (set window)?
+%
+% define an events class with enumerations of event codes? this might be
+% nice because we can filter objects by isa(eevent)
 
 % Requirements
 % containers.Maps used (requires Matlab 2008b)
 % New in R2010a is a constructor to specify key type as well as value type. 
 % M = containers.Map('KeyType', kType, 'ValueType', vType)
 
-classdef pointProcess
+classdef (CaseInsensitiveProperties = true) pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
       % String identifier
@@ -179,13 +182,18 @@ classdef pointProcess
       isValidWindow
    end
       
-   properties(GetAccess = public, SetAccess = private)
+   properties(GetAccess = public, SetAccess = private, Hidden = true)
       % Original [min max] time window of interest
       window_
       
       % Original offset
       offset_
 
+      % Classdef version for loadobj & saveobj
+      version = 0.1;
+   end
+   
+   properties(GetAccess = public, SetAccess = private)
       % Classdef version for loadobj & saveobj
       version = 0.1;
    end
@@ -417,7 +425,7 @@ classdef pointProcess
          %
          % If one output is requested from FUN (nOpt = 1, the default),
          % then the expectation is that FUN returns scalar outputs that can
-         % be concatonated (see also cellfun).
+         % be concatonated, and windowFun will return and array (see cellfun).
          %   If more than one output is requested from FUN (nOpt > 1), then
          % outputs will be collected in a cell array, with the elements
          % corresponding to FUN outputs. Again, the expectation is that
@@ -459,8 +467,7 @@ classdef pointProcess
          % % inner cell array corresponding to outputs for each window of spk
          % result = spk.windowFun(@(x) getPsth(x,0.025),2,'UniformOutput',false)
          % figure; hold on
-         % plot(temp{2}{1},temp{1}{1},'r'); plot(temp{2}{2},temp{1}{2},'b')
-         % 
+         % plot(result{2}{1},result{1}{1},'r'); plot(result{2}{2},result{1}{2},'b')
          %
          % SEE ALSO
          % cellfun
@@ -820,35 +827,35 @@ classdef pointProcess
          end         
       end
       
-      function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
-         % Get history-independent intensity (marginal)
-         % For a full description of the possible parameters, 
-         % see also: getPsth
-
-         % TODO
-         % When self.unit functioning, need to reconcile units with bandwidth
-         % here
-         % check output when vector input is a row
-         
-         p = inputParser;
-         p.KeepUnmatched= true;
-         p.FunctionName = 'pointProcess psth method';
-         p.addRequired('bw', @isnumeric);
-         p.parse(bw,varargin{:});
-         % Passed through to getPsth
-         params = p.Unmatched;
-         
-         n = length(self);
-         % These window changes will NOT be persistent (not copied into object)
-         if isfield(params,'window')
-            window = self.checkWindow(params.window,n);
-         else
-            window = self.checkWindow(cat(1,self.window),n);
-         end
-
-         times = getTimes(self,window);
-         [r,t,r_sem,count,reps] = getPsth(times,p.Results.bw,params);
-      end
+%       function [r,t,r_sem,count,reps] = getPsth(self,bw,varargin)
+%          % Get history-independent intensity (marginal)
+%          % For a full description of the possible parameters, 
+%          % see also: getPsth
+% 
+%          % TODO
+%          % When self.unit functioning, need to reconcile units with bandwidth
+%          % here
+%          % check output when vector input is a row
+%          
+%          p = inputParser;
+%          p.KeepUnmatched= true;
+%          p.FunctionName = 'pointProcess psth method';
+%          p.addRequired('bw', @isnumeric);
+%          p.parse(bw,varargin{:});
+%          % Passed through to getPsth
+%          params = p.Unmatched;
+%          
+%          n = length(self);
+%          % These window changes will NOT be persistent (not copied into object)
+%          if isfield(params,'window')
+%             window = self.checkWindow(params.window,n);
+%          else
+%             window = self.checkWindow(cat(1,self.window),n);
+%          end
+% 
+%          times = getTimes(self,window);
+%          [r,t,r_sem,count,reps] = getPsth(times,p.Results.bw,params);
+%       end
             
       %% Operators
       function obj = plus(x,y)
@@ -998,5 +1005,5 @@ classdef pointProcess
       end      
    end % methods(Static)
    
-end
+end % classdef
 
