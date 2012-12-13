@@ -445,6 +445,9 @@ classdef pointProcess
       
       function self = removeTimes(self,times)
          % Remove times and associated map keys
+         % Note that this does NOT change tStart or tEnd
+         %
+         % times - array of event times to remove
          %
          % SEE ALSO
          % removeMapKeys
@@ -454,7 +457,10 @@ classdef pointProcess
                % Map is handle object
                self(i).map.remove(num2cell(self(i).times(ind)));
                self(i).times(ind) = [];
-               % TODO reset all dependent properties to account for changes
+               % Reset properties that depend on event times
+               oldOffset = self(i).offset;
+               self(i).window = self(i).window;
+               self(i).offset = oldOffset;
             end
          end
          
