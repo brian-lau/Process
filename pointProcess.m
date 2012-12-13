@@ -406,14 +406,25 @@ classdef pointProcess
          end
       end
       
-      function array = windowFun(self,fun,varargin)
+      function array = windowFun(self,fun,nOpt,varargin)
          % Apply a function to windowedTimes
          % 
-         % FUN should expect an array of event times. By default, the
-         % expectation is that FUN returns scalar outputs that can be
-         % concatonated. For single pointProcess objects, ARRAY is returned
-         % as an array. If FUN does not return scalars, set 'UniformOutput'
-         % false, in which case, ARRAY is returned as a cell array.
+         % FUN should expect an array of event times. The output format of 
+         % windowFun depends on three factors:
+         %   1) The number of outputs requested from FUN (NOPT)
+         %   2) The output format of FUN
+         %   3) Whether the pointProcess object is an array of objects
+         %
+         % If one output is requested from FUN (nOpt = 1, the default),
+         % then the expectation is that FUN returns scalar outputs that can
+         % be concatonated (see also cellfun).
+         %   If more than one output is requested from FUN (nOpt > 1), then
+         % outputs will be collected in a cell array, with the elements
+         % corresponding to FUN outputs. Again, the expectation is that
+         % each of the outputs of FUN are scalars that can be concatonated.
+         %   If FUN does not return scalars, set 'UniformOutput' false, in 
+         % which case, ARRAY is returned as a cell array. For the case of
+         % multiple outputs, this will be a cell array of cell arrays.
          %
          % For arrays of pointProcess objects, ARRAY is a cell array where
          % each element is the output of windowFun called on the
@@ -422,33 +433,54 @@ classdef pointProcess
          %
          % INPUTS
          % fun      - Function handle
+         % nOpt     - # of outputs to return from FUN
          % varargin - Additional arguments, the underlying call is to
-         %            cellfun, so inputs should be formatted accordingly
+         %            cellfun, so varargin should be formatted accordingly
          %
          % EXAMPLE
          % % process with different rates in two different windows
-         % spk = pointProcess('times',[rand(100,1) ; 1+rand(100,1)*10],'window',[0 .5;.5 10]);
+         % spk = pointProcess('times',[rand(100,1) ; 1+rand(100,1)*10],'window',[0 1;1 10]);
          % spk.raster('style','line');
          %
-         % % Calculate the average inter-event interval in each window
+         % % Average inter-event interval in each window
          % spk.windowFun(@(x) mean(diff(x)))
          %
-         % % Estimate a PSTH for each window
-         % spk.windowFun(@(x) getPsth(x,0.025),'UniformOutput',false)
+         % % Maximum event time and index in each window
+         % result = spk.windowFun(@(x) max(x))
+         %
+         % % Return the maximum and it's index (nOpt = 2). Since both
+         % % outputs of MAX are scalar, the elements of RESULT are vectors,
+         % % one element corresponding to each window of SPK
+         % result = spk.windowFun(@(x) max(x),2)
+         %
+         % % Estimate a PSTH for each window. The outputs of GETPSTH are
+         % % not scalar, so result is a nested cell array, the outer cell
+         % % array corresponding to the different outputs of FUN, and the
+         % % inner cell array corresponding to outputs for each window of spk
+         % result = spk.windowFun(@(x) getPsth(x,0.025),2,'UniformOutput',false)
+         % figure; hold on
+         % plot(temp{2}{1},temp{1}{1},'r'); plot(temp{2}{2},temp{1}{2},'b')
          % 
          %
          % SEE ALSO
          % cellfun
          
-         % TODO handle multiple outputs of FUN? Not obvious how to do this,
-         % workaround is to return structs from FUN
+         % TODO perhaps we should do a try/catch to automatically attempt to set
+         % uniformoutput false?
+         if nargin < 3
+            nOpt = 1;
+         end
          
          if numel(self) == 1
-            array = cellfun(fun,self.windowedTimes,varargin{:});
+            if nOpt == 1
+               array = cellfun(fun,self.windowedTimes,varargin{:});
+            else
+               [array{1:nOpt}] = cellfun(fun,self.windowedTimes,varargin{:});
+            end
          else
             array = cell(size(self));
             for i = 1:numel(self)
-               array{i} = windowFun(self(i),fun,varargin{:});
+               array{i} = windowFun(self(i),fun,nOpt,varargin{:});
             end
          end
       end
@@ -463,16 +495,7 @@ classdef pointProcess
 % elements into a format that the function expects. For consistency, we
 % want a general format that can be passed around?
 % how about the one for getPsth and plotRaster
-      
-%       function self = transform(self,fun,varargin)
-%          % Transformation like time-rescaling, thinning, etc?
-%          % should be a property transformFunction that contains a function
-%          % handle that accepts spikes and possibly other inputs
-%          % applied after windowing, so the most general form would be an
-%          % array of function handles, but this really seems excessive...
-%       end
-%
-      
+            
       function self = reset(self)
          % Reset times and windows to state when object was created         
          n = numel(self);
