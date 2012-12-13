@@ -119,7 +119,7 @@ classdef pointProcess
       name
       
       % Information about point process. This is a dictionary keyed with
-      % character keys. Values can be arbitrary data types.
+      % strings. Values can be arbitrary data types.
       info
             
       % Vector of event times
@@ -405,6 +405,49 @@ classdef pointProcess
          end
       end
       
+      function array = windowFun(self,fun,varargin)
+         % Apply a function to windowedTimes
+         % 
+         % FUN should expect an array of event times. By default, the
+         % expectation is that FUN returns scalar outputs that can be
+         % concatonated. For single pointProcess objects, ARRAY is returned
+         % as an array. If FUN does not return scalars, set 'UniformOutput'
+         % false, in which case, ARRAY is returned as a cell array.
+         %
+         % For arrays of pointProcess objects, ARRAY is a cell array where
+         % each element is the output of windowFun called on the
+         % corresponding pointProcess object. Depending on 'UniformOutput',
+         % this can again be an array or a cell array.
+         %
+         % INPUTS
+         % fun      - Function handle
+         % varargin - Additional arguments, the underlying call is to
+         %            cellfun, so inputs should be formatted accordingly
+         %
+         % SEE ALSO
+         % cellfun
+         
+         if numel(self) == 1
+            array = cellfun(fun,self.windowedTimes,varargin{:});
+         else
+            array = cell(size(self));
+            for i = 1:numel(self)
+               array{i} = cellfun(fun,self(i).windowedTimes,varargin{:});
+            end
+         end
+      end
+% Collection should coordinate how to handle the outputs of windowFun
+% analysis method, need to handle the following situations
+% 1) function applied to each element, and returned individually, eg. first
+% spike time in each window, or the number of spikes in each window
+% 2) function applied to groupings of elements, eg., psth
+
+% first is easy, we just return big cell arrays full of stuff
+% second is less obvious. Requires arranging windowedTimes across all
+% elements into a format that the function expects. For consistency, we
+% want a general format that can be passed around?
+% how about the one for getPsth and plotRaster
+      
 %       function self = transform(self,fun,varargin)
 %          % Transformation like time-rescaling, thinning, etc?
 %          % should be a property transformFunction that contains a function
@@ -412,6 +455,7 @@ classdef pointProcess
 %          % applied after windowing, so the most general form would be an
 %          % array of function handles, but this really seems excessive...
 %       end
+%
       
       function self = reset(self)
          % Reset times and windows to state when object was created         
@@ -475,7 +519,6 @@ classdef pointProcess
       function array = mapFun(self,fun,varargin)
          % TODO array input
          % TODO, how to respect window?
-         % This should return one bool per window...
          % array = mapfun(fun,{self.map},varargin{:});
          array = mapfun(fun,self.map,varargin{:});
       end
@@ -497,6 +540,8 @@ classdef pointProcess
          %
          % It is possible to restrict to keys by passing in additional args
          % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
+         
+         % TODO, return map key as well do this is static method
          bool = self.doesHashmapHaveValue({self.map},value,varargin{:});
       end
       
@@ -576,6 +621,8 @@ classdef pointProcess
          % eg, self.inWindow('Large/Large cue') should return a boolean
          % vector (for single object) over windows, or a cell array of
          % vectors (for multiple objects)
+         % yuck...
+         % events(1).map.values(num2cell(events(1).times((events(1).windowIndex{1}))))
       end
       
       
@@ -906,6 +953,7 @@ classdef pointProcess
          %
          % It is possible to restrict to keys by passing in additional args
          % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
+         % TODO, checking for cell array input?
          temp = mapfun(@(x,y) isequal(x,y),map,'params',{value},varargin{:});
          bool = cellfun(@(x) any(x),temp);
       end      
