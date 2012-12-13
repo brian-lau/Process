@@ -8,10 +8,6 @@
 % hazard
 %
 % time conversion between units
-% this will mean that times property will not necessarily be vector??
-%   eg., if events are coded as hours, min, seconds
-% This may not even really make sense, not really units, more
-% representation
 %
 % when info values are themselves pointProcesses, should we check time
 % consistency with the parent pointProcess? ie tAbs?
@@ -111,40 +107,36 @@
 % / or ./ to chop, 
 % < > <= >= could be used to restrict eventTimes (set window)?
 
+% Requirements
+% containers.Maps used (requires Matlab 2008b)
+% New in R2010a is a constructor to specify key type as well as value type. 
+% M = containers.Map('KeyType', kType, 'ValueType', vType)
+
 classdef pointProcess
 %
    properties(GetAccess = public, SetAccess = private)
       % String identifier
       name
       
-      % container.Map with information about process (requires Matlab 2008b)
+      % Information about point process. This is a dictionary keyed with
+      % character keys. Values can be arbitrary data types.
       info
             
       % Vector of event times
       times
 
-      % Time representation 
+      % Information associated with each event time. This is a dictionary
+      % keyed by each event time. Values can be arbitrary data types.
+      map
+
+      % Time representation (placeholder)
       unit = 'seconds';
       
-      % If marked point process, vector of associated magnitudes
-      % maybe this should be a container? use keys that correspond either
-      % to the eventTimes (double) or eventTime index (integer). then this
-      % can always be filtered, and is always correctly associated with
-      % times? If pointProcess is a neuron, you might put waveforms in here
-      % if pointProcess is a set of event times, like stimulus onset, you
-      % might put image name or something in here. More likely, different
-      % images would be different pointProcess objects? What if you do
-      % revcorr and want to store each stimulus (ori, sf, color, etc)? then
-      % each mark would contain a structure)
-      %
-      % Does this really need to be a map? I essentially use it as a list,
-      % since the key values are integer index. would be more useful if
-      % keys were the actual times?
-      map
+      % Identifier for clock used to measure time. Anticipating drift-correction
+      clock
    end
    
    properties(GetAccess = public, SetAccess = private)
-   %properties(GetAccess = public, SetAccess = immutable)
       % Start time of point process, defines origin (defaults to zero)
       tStart
       
@@ -156,7 +148,7 @@ classdef pointProcess
       % [min max] time window of interest
       window
       
-      % offset of event times relative to window
+      % Offset of event times relative to window
       offset
    end
    
@@ -167,17 +159,17 @@ classdef pointProcess
    end
    
    % Also window-dependent, but only calculated on window change
-   % Possibly set Hidden = true, or define display method to hide?
    % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
    properties (SetAccess = private, Transient = true)
       % Should be function handle? defines intensity representations
       lambdaEstimator = '';
       
-      % count/window Hz? intensity should be a class, subclass of
-      % sampledProcess
-%      lambda
+      % count/window Hz? intensity should be a class, subclass of sampledProcess
+      lambda
       
-      % Cell array of event times contained in window
+      % Cell array of event times contained in window(s). Note that any
+      % offset is applied *after* windowing, so windowedTimes can be outside 
+      % of the windows property
       windowedTimes
       
       % Cell array of indices into event times for times contained in window
@@ -187,8 +179,7 @@ classdef pointProcess
       isValidWindow
    end
       
-      
-   properties(GetAccess = public, SetAccess = immutable)
+   properties(GetAccess = public, SetAccess = private)
       % Original [min max] time window of interest
       window_
       
@@ -200,6 +191,7 @@ classdef pointProcess
    end
    
    methods
+      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       %% Constructor
       function self = pointProcess(varargin)
          % Constructor, arguments are taken as name/value pairs
@@ -224,8 +216,7 @@ classdef pointProcess
             p = inputParser;
             p.KeepUnmatched= false;
             p.FunctionName = 'pointProcess constructor';
-            p.addParamValue('name','',@ischar);
-            %p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
+            p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
             p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
             p.addParamValue('infoKeys',[],@iscell);
             p.addParamValue('times',NaN,@isnumeric);
@@ -330,30 +321,30 @@ classdef pointProcess
          self.window_ = self.window;
          self.offset_ = self.offset;
       end % constructor
+      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       %% Set functions
       function self = set.window(self,window)
-         % Set the window property
+         % Set the window property (does not work for arrays of objects)
          %
-         % Does not work for vector inputs, need setWindow()
+         % SEE ALSO
+         % setWindow, windowTimes
          self.window = checkWindow(window,size(window,1));
-         % Reset offset, which is always relative to window
+         % Reset offset, which always follows window
          self.offset = 'windowIsReset';
          % Expensive, only call when windows are changed
          self = windowTimes(self);
       end
       
       function self = setWindow(self,window)
-         % Set the window property
-         %
-         % Allows array object input, 
+         % Set the window property. Works for array object input, where
          % window must either be
-         % [1 x 2] vector applied to all elements of the object array
-         % {nObjs x 1} cell vector containing windows for each element of
-         %     the object array
+         %   [1 x 2] vector applied to all elements of the object array
+         %   {nObjs x 1} cell vector containing windows for each element of
+         %       the object array
          %
          % SEE ALSO
-         % window
+         % window, windowTimes
          n = numel(self);
          if iscell(window)
             window = checkWindow(window,n);
@@ -368,20 +359,24 @@ classdef pointProcess
       
       function self = setInclusiveWindow(self)
          % Set windows to earliest and latest event times
+         %
+         % SEE ALSO
+         % window, setWindow, windowTimes
          for i = 1:numel(self)
             self(i).window = [min(self(i).times) max(self(i).times)];
          end
       end
       
       function self = set.offset(self,offset)
-         % Set the offset property
+         % Set the offset property (does not work for arrays of objects)
          %
-         % Does not work for vector inputs, need setOffset()
+         % SEE ALSO
+         % setOffset, offsetTimes
          if strcmp(offset,'windowIsReset')
             self.offset = zeros(size(self.window,1),1);
          else
             newOffset = checkOffset(offset,size(self.window,1));
-            % Reset offset, which is always relative to window
+            % Reset offset, which is always follows window
             self = offsetTimes(self,true);
             self.offset = newOffset;
             % Only call when offsets are changed
@@ -390,12 +385,14 @@ classdef pointProcess
       end
       
       function self = setOffset(self,offset)
-         % Set the offset property
-         % Allows array object input, 
+         % Set the offset property. Works for array object input, where
          % offset must either be
-         % scalar applied to all elements of the object array
-         % {nObjs x 1} cell vector containing offsets for each element of
-         %     the object array
+         %   scalar applied to all elements of the object array
+         %   {nObjs x 1} cell vector containing offsets for each element of
+         %       the object array
+         %
+         % SEE ALSO
+         % offset, offsetTimes
          n = numel(self);
          if iscell(offset)
             offset = checkOffset(offset,n);
@@ -407,20 +404,18 @@ classdef pointProcess
             error('pointProcess:setOffset:InputFormat','Bad offset');
          end
       end
-                  
-      function self = transform(self,functionHandle,varargin)
-         keyboard
-         
-         % Transformation like time-rescaling, thinning, etc?
-         % should be a property transformFunction that contains a function
-         % handle that accepts spikes and possibly other inputs
-         % applied after windowing, so the most general form would be an
-         % array of function handles, but this really seems excessive...
-      end
+      
+%       function self = transform(self,fun,varargin)
+%          % Transformation like time-rescaling, thinning, etc?
+%          % should be a property transformFunction that contains a function
+%          % handle that accepts spikes and possibly other inputs
+%          % applied after windowing, so the most general form would be an
+%          % array of function handles, but this really seems excessive...
+%       end
       
       function self = reset(self)
          % Reset times and windows to state when object was created         
-         n = length(self);
+         n = numel(self);
          for i = 1:n
             self(i).window = self(i).window_;
             self(i).offset = self(i).offset_;
@@ -429,21 +424,11 @@ classdef pointProcess
       
       %% Get Functions
       function count = get.count(self)
-         % # of events within windows
+         % # of event times within windows
          times = self.windowedTimes;
          count = cellfun(@(x) numel(x),self.windowedTimes);
       end
-      
-%       function times = getMarkTimes(self)
-%          %    return times associated with marks that have these values
-%          %    logic = and, or
-%          %    values = 'object' 'numeric value' 'string'
-%          % criteria, 'key' 'value' 'time
-%          values = getMarkValues(self);
-%          keyboard
-%          
-%       end
-      
+            
 %       function self = selectByTimes(self,window)
 %          % Return pointProcess restricted by window
 %          % Destructive (ie, discards data outside window)
@@ -458,6 +443,27 @@ classdef pointProcess
          % for an array of times
       end
       
+      function self = removeTimes(self,times)
+         % Remove times and associated map keys
+         %
+         % SEE ALSO
+         % removeMapKeys
+         for i = 1:numel(self)
+            [~,ind] = ismember(times,self(i).times);
+            % Map is handle object
+            self(i).map.remove(num2cell(self(i).times(ind)));
+            self(i).times(ind) = [];
+            % TODO reset all dependent properties to account for changes
+         end
+         
+         if nargout == 0
+            % MAP is a handle object, so a gotcha when this method is called
+            % with no output is that MAP will have deleted keys, but the 
+            % TIMES will be unchanged. Workaround by emulating pass-by-reference
+            assignin('caller',inputname(1),self);
+         end
+      end
+      
       function array = mapFun(self,fun,varargin)
          % TODO array input
          % TODO, how to respect window?
@@ -466,12 +472,42 @@ classdef pointProcess
          array = mapfun(fun,self.map,varargin{:});
       end
       
+      function array = getMapKeys(self)
+         % Should be searchable by value?
+         % Useful if we know a value (ie, 'start trial'), and want to know
+         % the time(s)
+         % alias to getMapTimes
+         array = arrayfun(@(x) x.map.keys,self,'UniformOutput',false);
+      end
+      
+      function array = getMapValues(self)
+         array = arrayfun(@(x) x.map.values,self,'UniformOutput',false);
+      end
+      
       function bool = doesMapHaveValue(self,value,varargin)
          % Boolean for whether MAP dictionary has value
          %
          % It is possible to restrict to keys by passing in additional args
          % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
          bool = self.doesHashmapHaveValue({self.map},value,varargin{:});
+      end
+      
+      function self = removeMapKeys(self,keys)
+         % Remove map keys and associated times
+         %
+         % SEE ALSO
+         % removeTimes
+         if iscell(keys)
+            ind = cellfun(@(x) ~isnumeric(x),keys);
+            if any(ind)
+               fprintf('%g non-numeric keys ignored.',sum(ind));
+            end
+            keys = cell2mat(keys(~ind));
+         else
+            error('pointProcess:removeMapKeys:InputFormat',...
+               'keys must be numeric or cell array');
+         end
+         self = removeTimes(self,keys);
       end
       
       function array = infoFun(self,fun,varargin)
@@ -489,6 +525,7 @@ classdef pointProcess
             flatBool = false;
          end
          
+         % TODO replace with arrayfun
          n = numel(self);
          array = cell(size(self));
          for i = 1:n
@@ -534,14 +571,6 @@ classdef pointProcess
       end
       
       
-      function self = deleteTimes(self,times)
-         % Remove times and associated marks
-         % need to call window and offset setters to reassign dependents
-      end
-      function self = deleteMap(self,keys)
-         % Remove map elements and associated times
-         % need to call window and offset setters to reassign dependents
-      end
       
 %       function lambda = get.lambda(self)
 %          % # of events within windows
@@ -616,17 +645,6 @@ classdef pointProcess
                   % how to deal with offset, should zero to window, but
                   % store windowStart as offset_? perhaps add original
                   % offset_?
-%                  keyboard
-%                   obj(i) = pointProcess(...
-%                      'name',self.name,...
-%                      'info',self.info,...
-%                      'times',self.windowedTimes{i},...
-%                      'marks',marks,...
-%                      'tStart',self.window(i,1),...
-%                      'tEnd',self.window(i,2),...
-%                      'window',self.window(i,:),...
-%                      'offset',self.offset(i)...
-%                      );
                   
                   temp = self.windowedTimes{i};                  
                   map = copyMap(self.map,num2cell(temp));
@@ -686,7 +704,7 @@ classdef pointProcess
          % Passed through to plotRaster
          params = p.Unmatched;
          
-         n = length(self);
+         n = numel(self);
          if n == 1
             times = self.windowedTimes;
          else
@@ -740,7 +758,7 @@ classdef pointProcess
             
       %% Operators
       function obj = plus(x,y)
-         % Addition
+         % Overloaded addition (plus, +)
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
             % should merge the objects
@@ -757,7 +775,7 @@ classdef pointProcess
       end
       
       function obj = minus(x,y)
-         % Subtraction
+         % Overloaded subtraction (minus, -)
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
             % should delete the common times from object
@@ -832,10 +850,11 @@ classdef pointProcess
             error('Eq is not defined for inputs');
          end
       end
-   end
+   end % methods (Public)
    
    methods(Access = private)
       function self = windowTimes(self)
+         %
          nWindow = size(self.window,1);
          times = self.times;
          window = self.window;
@@ -858,6 +877,7 @@ classdef pointProcess
       end
       
       function self = offsetTimes(self,reset)
+         %
          if nargin == 1
             reset = false;
          end
@@ -866,21 +886,22 @@ classdef pointProcess
          else
             offset = self.offset;
          end
-         for i = 1:length(offset)
+         for i = 1:numel(offset)
             self.windowedTimes{i,1} = self.windowedTimes{i,1} + offset(i);
          end
       end
-   end
+   end % methods(Private)
+   
    methods(Static)
       function bool = doesHashmapHaveValue(map,value,varargin)
-         % Boolean for whether dictionary has value
+         % Boolean for whether dictionary contains value
          %
          % It is possible to restrict to keys by passing in additional args
          % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
          temp = mapfun(@(x,y) isequal(x,y),map,'params',{value},varargin{:});
          bool = cellfun(@(x) any(x),temp);
       end      
-   end
+   end % methods(Static)
    
 end
 
