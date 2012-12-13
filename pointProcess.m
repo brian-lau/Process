@@ -449,11 +449,13 @@ classdef pointProcess
          % SEE ALSO
          % removeMapKeys
          for i = 1:numel(self)
-            [~,ind] = ismember(times,self(i).times);
-            % Map is handle object
-            self(i).map.remove(num2cell(self(i).times(ind)));
-            self(i).times(ind) = [];
-            % TODO reset all dependent properties to account for changes
+            ind = ismember(self(i).times,times);
+            if any(ind)
+               % Map is handle object
+               self(i).map.remove(num2cell(self(i).times(ind)));
+               self(i).times(ind) = [];
+               % TODO reset all dependent properties to account for changes
+            end
          end
          
          if nargout == 0
