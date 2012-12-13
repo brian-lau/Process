@@ -110,12 +110,20 @@
 % define an events class with enumerations of event codes? this might be
 % nice because we can filter objects by isa(eevent)
 
+% 13.12.2012 switch to handle class for pass-by-reference behavior. This
+% makes more sense when dealing with a collection which has an array of
+% pointProcess objects. 
+% more straightforward and less error-prone to call methods
+% coll.pointProcess.method
+% rather than
+% coll.pointProcess = coll.pointProcess.method
+
 % Requirements
 % containers.Maps used (requires Matlab 2008b)
 % New in R2010a is a constructor to specify key type as well as value type. 
 % M = containers.Map('KeyType', kType, 'ValueType', vType)
 
-classdef (CaseInsensitiveProperties = true) pointProcess
+classdef (CaseInsensitiveProperties = true) pointProcess < handle
 %
    properties(GetAccess = public, SetAccess = private)
       % String identifier
@@ -140,7 +148,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
    end
    
    properties(GetAccess = public, SetAccess = private)
-      % Start time of point process, defines origin (defaults to zero)
+      % Start time of point process, (defaults to min(0,min(times)))
       tStart
       
       % End time of point process (defaults to last event time)
@@ -188,9 +196,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess
       
       % Original offset
       offset_
-
-      % Classdef version for loadobj & saveobj
-      version = 0.1;
    end
    
    properties(GetAccess = public, SetAccess = private)
@@ -207,11 +212,15 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          % info     - cell array of information about process
          % infoKeys - cell array of strings labelling info elements
          % times    - Vector of event times
-         % map    - Corresponding vector of magnitudes for "marked" process
+         % map      - Corresponding vector of magnitudes for "marked" process
          % window   - Defaults to window that includes all event times,
          %            If a smaller window is passed in, event times outside
          %            the window will be DISCARDED.
          % tAbs     - Time that event times are relative
+         
+         if nargin == 0
+            return;
+         end
          
          if nargin == 1
             % TODO allow struct input, perhaps even obj input?
@@ -231,12 +240,17 @@ classdef (CaseInsensitiveProperties = true) pointProcess
             p.addParamValue('map',[],@(x) isnumeric(x) || iscell(x) || isa(x,'containers.Map'));
             p.addParamValue('window',[],@isnumeric);
             p.addParamValue('offset',[],@isnumeric);
-            p.addParamValue('tStart',0,@isnumeric);
+            p.addParamValue('tStart',[],@isnumeric);
             p.addParamValue('tEnd',[],@isnumeric);
             p.parse(varargin{:});
          end
          
          self.name = p.Results.name;
+         
+         if any(isnan(p.Results.times))
+            error('pointProcess:Constructor:InputFormat',...
+               'Numeric times are required to construct a pointProcess object.');
+         end
          
          % Sort event times
          % TODO perhaps don't use unique, as some events may all occur at
@@ -248,11 +262,11 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          if isempty(p.Results.map)
             eventMap = [];
          elseif isa(p.Results.map,'containers.Map')
-            if all(isKey(p.Results.map,num2cell(eventTimes)))%all(isKey(p.Results.map,num2cell(tInd)))
-               % TODO THERE IS NO SORTING HERE? NOT SURE IT MAKES SENSE TO
+            if all(isKey(p.Results.map,num2cell(eventTimes)))
                eventMap = p.Results.map;
             else
-               error('bad map dictionary');
+               error('pointProcess:Constructor:InputFormat',...
+                  'If map is a dictionary, keys must match times.');
             end
          else
             eventMap = p.Results.map(tInd);
@@ -261,8 +275,8 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          % Define the start and end times of the process
          % TODO note the possibility of negative times passed in, is this
          % default sensible???
-         if p.Results.tStart == 0
-            self.tStart = 0;
+         if isempty(p.Results.tStart)
+            self.tStart = min(eventTimes(1),0);
          else
             self.tStart = p.Results.tStart;
          end
@@ -280,26 +294,33 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          else
             self.times = eventTimes(ind);
          end
-         if isempty(eventMap)
-            self.map = containers.Map();
+         % Create the map dictionary
+         if isempty(self.times)
+            self.map = containers.Map('KeyType','double','ValueType','any');
          else
-            if iscell(eventMap)
-               %self.map = containers.Map(1:length(ind),eventMap(ind));
-               self.map = containers.Map(eventTimes(ind),eventMap(ind));
-            elseif isa(eventMap,'containers.Map')
-               self.map = eventMap;
+            if isempty(eventMap)
+               self.map = containers.Map(eventTimes(ind),...
+                  cell(size(ind)));
             else
-               %self.map = containers.Map(1:length(ind),{eventMap(ind)});
-               self.map = containers.Map(eventTimes(ind),{eventMap(ind)});
+               if iscell(eventMap)
+                  self.map = containers.Map(eventTimes(ind),eventMap(ind));
+               elseif isa(eventMap,'containers.Map')
+                  % TODO remove keys that are not in times?
+                  % ismember
+                  self.map = eventMap;
+               else
+                  self.map = containers.Map(eventTimes(ind),{eventMap(ind)},...
+                     'uniformValues',false);
+               end
             end
          end
          
-         % Create an info dictionary
-         % TODO, force keys to be chars
+         % Create the info dictionary
          if isempty(p.Results.info)
-            self.info = containers.Map();
+            self.info = containers.Map('KeyType','char','ValueType','any');
          elseif isa(p.Results.info,'containers.Map')
-            % Passing in a  map, ignore infoKeys
+            % Passing in a map, ignore infoKeys
+            % TODO, error if info.KeyType ~= char
             self.info = p.Results.info;
          else
             if isempty(p.Results.infoKeys)
@@ -309,7 +330,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
             else
                infoKeys = p.Results.infoKeys;
             end
-            self.info = containers.Map(infoKeys,p.Results.info);
+            self.info = containers.Map(infoKeys,p.Results.info,'uniformValues',false);
          end
          
          % Set the window
@@ -318,11 +339,8 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          else
             if isempty(p.Results.window)
                self.window = [min(self.times) max(self.times)];
-            else%if numel(p.Results.window) == 2
+            else
                self.window = checkWindow(p.Results.window,size(p.Results.window,1));
-%               self.window = checkWindow(p.Results.window);
-%            else
-%               error('pointProcess constructor requires a single window');
             end
          end
 
@@ -333,7 +351,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       %% Set functions
-      function self = set.window(self,window)
+      function set.window(self,window)
          % Set the window property (does not work for arrays of objects)
          %
          % SEE ALSO
@@ -342,10 +360,10 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          % Reset offset, which always follows window
          self.offset = 'windowIsReset';
          % Expensive, only call when windows are changed
-         self = windowTimes(self);
+         windowTimes(self);
       end
       
-      function self = setWindow(self,window)
+      function setWindow(self,window)
          % Set the window property. Works for array object input, where
          % window must either be
          %   [1 x 2] vector applied to all elements of the object array
@@ -366,7 +384,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          end
       end
       
-      function self = setInclusiveWindow(self)
+      function setInclusiveWindow(self)
          % Set windows to earliest and latest event times
          %
          % SEE ALSO
@@ -376,7 +394,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          end
       end
       
-      function self = set.offset(self,offset)
+      function set.offset(self,offset)
          % Set the offset property (does not work for arrays of objects)
          %
          % SEE ALSO
@@ -386,14 +404,14 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          else
             newOffset = checkOffset(offset,size(self.window,1));
             % Reset offset, which is always follows window
-            self = offsetTimes(self,true);
+            offsetTimes(self,true);
             self.offset = newOffset;
             % Only call when offsets are changed
-            self = offsetTimes(self);
+            offsetTimes(self);
          end
       end
       
-      function self = setOffset(self,offset)
+      function setOffset(self,offset)
          % Set the offset property. Works for array object input, where
          % offset must either be
          %   scalar applied to all elements of the object array
@@ -503,7 +521,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
 % want a general format that can be passed around?
 % how about the one for getPsth and plotRaster
             
-      function self = reset(self)
+      function reset(self)
          % Reset times and windows to state when object was created         
          n = numel(self);
          for i = 1:n
@@ -528,12 +546,12 @@ classdef (CaseInsensitiveProperties = true) pointProcess
 %          self = chop(self);
 %       end
       
-      function self = selectByWindow()
+      function selectByWindow()
          % Should do the above, and make the selectByTimes actually search
          % for an array of times
       end
       
-      function self = removeTimes(self,times)
+      function removeTimes(self,times)
          % Remove times and associated map keys
          % Note that this does NOT change tStart or tEnd
          %
@@ -554,7 +572,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
             end
          end
          
-         if nargout == 0
+         if 0%nargout == 0
             % MAP is a handle object, so a gotcha when this method is called
             % with no output is that MAP will have deleted keys, but the 
             % TIMES will be unchanged. Workaround by emulating pass-by-reference
@@ -591,7 +609,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          bool = self.doesHashmapHaveValue({self.map},value,varargin{:});
       end
       
-      function self = removeMapKeys(self,keys)
+      function removeMapKeys(self,keys)
          % Remove map keys and associated times
          %
          % SEE ALSO
@@ -606,7 +624,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
             error('pointProcess:removeMapKeys:InputFormat',...
                'keys must be numeric or cell array');
          end
-         self = removeTimes(self,keys);
+         removeTimes(self,keys);
       end
       
       function array = infoFun(self,fun,varargin)
@@ -671,8 +689,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          % events(1).map.values(num2cell(events(1).times((events(1).windowIndex{1}))))
       end
       
-      
-      
 %       function lambda = get.lambda(self)
 %          % # of events within windows
 %          times = self.windowedTimes;
@@ -707,15 +723,15 @@ classdef (CaseInsensitiveProperties = true) pointProcess
 %       end
 
       %% Functions
-      function self = addInfo(self)
+      function addInfo(self)
          % key-value addition to info property
       end
       
-      function self = removeInfo(self)
+      function removeInfo(self)
          % key-value deletion to info property
       end
       
-      function self = chop(self,window)
+      function chop(self,window)
          % TODO
          % marks create new map for each window
          % can we rechop?
@@ -736,7 +752,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
                % restrict event times to window? destructive
                return;
             else
-               obj(1:nWindow) = pointProcess();
+               obj(nWindow) = pointProcess();
                for i = 1:nWindow
                   % Leave info alone
                   % Copy marks in window to new object, resetting keys
@@ -761,7 +777,9 @@ classdef (CaseInsensitiveProperties = true) pointProcess
                   obj(i).offset = self.offset(i);
                   % Need to set offset_ and window_
                end
-               self = obj;
+               %keyboard
+               assignin('caller',inputname(1),obj);
+               %self = obj;
             end
          end
       end
@@ -858,7 +876,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
 %       end
             
       %% Operators
-      function obj = plus(x,y)
+      function plus(x,y)
          % Overloaded addition (plus, +)
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
@@ -866,26 +884,26 @@ classdef (CaseInsensitiveProperties = true) pointProcess
             % order will matter, how to deal with names & info?
          elseif isa(x,'pointProcess') && isnumeric(y)
             [x.offset] = deal(y);
-            obj = x;
+            %obj = x;
          elseif isa(y,'pointProcess') && isnumeric(x)
             [y.offset] = deal(x);
-            obj = y;
+            %obj = y;
          else
             error('Plus not defined for inputs');
          end
       end
       
-      function obj = minus(x,y)
+      function minus(x,y)
          % Overloaded subtraction (minus, -)
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
             % should delete the common times from object
          elseif isa(x,'pointProcess') && isnumeric(y)
             [x.offset] = deal(-y);
-            obj = x;
+            %obj = x;
          elseif isa(y,'pointProcess') && isnumeric(x)
             [y.offset] = deal(-x);
-            obj = y;
+            %obj = y;
          else
             error('Minus not defined for inputs');
          end
@@ -954,7 +972,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
    end % methods (Public)
    
    methods(Access = private)
-      function self = windowTimes(self)
+      function windowTimes(self)
          %
          nWindow = size(self.window,1);
          times = self.times;
@@ -977,7 +995,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess
          self.isValidWindow = isValidWindow;
       end
       
-      function self = offsetTimes(self,reset)
+      function offsetTimes(self,reset)
          %
          if nargin == 1
             reset = false;
