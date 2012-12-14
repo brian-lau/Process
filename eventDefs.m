@@ -1,29 +1,35 @@
 classdef eventDefs
    properties
+      %
       word
+      % 
+      data
    end
    methods
       function self = eventDefs(w)
          self.word = w;
       end
       function c = array2cell(self)
+         % Convert array of eventDefs to a cell array
          c = arrayfun(@(x) x,self,'UniformOutput',false);
       end
    end
    enumeration
       %
-      Spike        (0)
+      spike               (0)
       
       %
-      StartTrial   (1)
-      EndTrial     (2)
+      trialStart          (1)
+      trialEnd            (2)
       
       %
-      CueOn        (2)
-      CueOff       (4)
+      onCue               (2)
+      offCue              (4)
+      onReward            (5)
+      offReward           (6)
       
       %
-      Condition1   (5)
-      Condition2   (6)
+      condAttend          (7)
+      condNoAttend        (8)
    end
 end
