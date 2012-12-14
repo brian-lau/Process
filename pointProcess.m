@@ -226,45 +226,49 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             return;
          end
          
-         if nargin == 1
-            % TODO allow struct input, perhaps even obj input?
-            if false
-            else
-               error('pointProcess:pointProcess:InputFormat',...
-                  'When passing one input, it must be a struct or another pointProcess');
-            end
-         else
-            p = inputParser;
-            p.KeepUnmatched= false;
-            p.FunctionName = 'pointProcess constructor';
-            p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
-            p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
-            p.addParamValue('infoKeys',[],@iscell);
-            p.addParamValue('times',NaN,@isnumeric);
-            p.addParamValue('map',[],@(x) isnumeric(x) || iscell(x) || isa(x,'containers.Map'));
-            p.addParamValue('window',[],@isnumeric);
-            p.addParamValue('offset',[],@isnumeric);
-            p.addParamValue('tStart',[],@isnumeric);
-            p.addParamValue('tEnd',[],@isnumeric);
-            p.parse(varargin{:});
-         end
+         p = inputParser;
+         p.KeepUnmatched= false;
+         p.FunctionName = 'pointProcess constructor';
+         p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
+         p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
+         p.addParamValue('infoKeys',[],@iscell);
+         p.addParamValue('times',NaN,@isnumeric);
+         p.addParamValue('map',[],@(x) isnumeric(x) || iscell(x) || isa(x,'containers.Map'));
+         p.addParamValue('window',[],@isnumeric);
+         p.addParamValue('offset',[],@isnumeric);
+         p.addParamValue('tStart',[],@isnumeric);
+         p.addParamValue('tEnd',[],@isnumeric);
+         p.parse(varargin{:});
          
          self.name = p.Results.name;
-
-% inputs = times and/or map as numeric or cell array w/ numel = times
-% inputs = no times and map is a containers.Map
-%     keyType must be double
-%     keys are assumed to be eventtimes
-
-%          if any(isnan(p.Results.times))
-%             error('pointProcess:Constructor:InputFormat',...
-%                'Numeric times are required to construct a pointProcess object.');
-%          end
-         %keyboard
+         % Create the info dictionary
+         if isempty(p.Results.info)
+            self.info = containers.Map('KeyType','char','ValueType','any');
+         elseif isa(p.Results.info,'containers.Map')
+            % Passing in a map, ignore infoKeys
+            if ~strcmp(p.Results.info.KeyType,'char')
+               error('pointProcess:Constructor:InputFormat',...
+                  'info keys must be chars.');
+            else
+               self.info = p.Results.info;
+            end
+         else
+            if isempty(p.Results.infoKeys)
+               for i = 1:length(p.Results.info)
+                  infoKeys{i,1} = ['key' num2str(i)];
+               end
+            else
+               infoKeys = p.Results.infoKeys;
+            end
+            self.info = containers.Map(infoKeys,p.Results.info,...
+            'uniformValues',false);
+         end
+         
          if any(strcmp(varargin,'times')) && isa(p.Results.map,'containers.Map')
             error('pointProcess:Constructor:InputCount',...
                'Map is a dictionary, it''s keys are assumed to be pointProcess times.');
          elseif isa(p.Results.map,'containers.Map')
+            % We have a map, assume the keys are our times
             map = p.Results.map;
             if strcmp(map.KeyType,'double')
                eventTimes = cell2mat(map.keys);
@@ -274,6 +278,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                   'If map is a dictionary, it''s keys are assumed to be doubles.');
             end
          elseif ~isempty(p.Results.times) && ~any(isnan(p.Results.times))
+            % We have a simple array of times, sort and apply to map
             [eventTimes,tInd] = unique(p.Results.times(:)');
             if isempty(p.Results.map)
                eventMap = [];
@@ -281,30 +286,17 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                eventMap = p.Results.map(tInd);
             end
          else
-            error('pointProcess:Constructor:InputCount',...
-               'Map is not a containers.Map, you need to pass in valid times.');
+            % No event times
+            return;
+%             error('pointProcess:Constructor:InputCount',...
+%                'Map is not a containers.Map, you need to pass in valid times.');
          end
          
-%          % Sort event times
-%          [eventTimes,tInd] = unique(p.Results.times(:)');
-
-%          % Sort corresponding map if not already a dictionary
-%          if isempty(p.Results.map)
-%             eventMap = [];
-%          elseif isa(p.Results.map,'containers.Map')
-%             if all(isKey(p.Results.map,num2cell(eventTimes)))
-%                eventMap = p.Results.map;
-%             else
-%                error('pointProcess:Constructor:InputFormat',...
-%                   'If map is a dictionary, keys must match times.');
-%             end
-%          else
-%             eventMap = p.Results.map(tInd);
-%          end
+         %% If we have event times
          
          % Define the start and end times of the process
          if isempty(p.Results.tStart)
-            self.tStart = min(eventTimes(1),0);
+            self.tStart = min([min(eventTimes) 0]);
          else
             self.tStart = p.Results.tStart;
          end
@@ -315,62 +307,50 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          end
          
          % Discard event times (& map) outside of start and end
-         % TODO, error when map.Count ~= numel(times)
          ind = (eventTimes>=self.tStart) & (eventTimes<=self.tEnd);
-         if isempty(ind)
+         if sum(ind) == 0
+            % No times left
             self.times = [];
+            return;
          else
             self.times = eventTimes(ind);
-         end
-         % Create the map dictionary
-         if isempty(self.times)
-            self.map = containers.Map('KeyType','double','ValueType','any');
-         else
-            if isempty(eventMap)
-               self.map = containers.Map(eventTimes(ind),...
-                  cell(size(ind)),'uniformValues',false);
-            else
-               if iscell(eventMap)
-                  self.map = containers.Map(eventTimes(ind),eventMap(ind));
-               elseif isa(eventMap,'containers.Map')
-                  % TODO remove keys that are not in times?
-                  % ismember
-                  self.map = eventMap;
-               else
-                  self.map = containers.Map(eventTimes(ind),{eventMap(ind)},...
-                     'uniformValues',false);
-               end
+            if isa(eventMap,'containers.Map')
+               % TODO remove keys that are not in times?
+               % ismember
+            elseif ~isempty(eventMap)
+               eventMap = eventMap(ind);
             end
          end
          
-         % Create the info dictionary
-         if isempty(p.Results.info)
-            self.info = containers.Map('KeyType','char','ValueType','any');
-         elseif isa(p.Results.info,'containers.Map')
-            % Passing in a map, ignore infoKeys
-            % TODO, error if info.KeyType ~= char
-            self.info = p.Results.info;
+         % Create the map dictionary if we have times left
+         if isempty(eventMap)
+            % Set a default map, with event times as keys
+            self.map = containers.Map(self.times,cell(size(self.times)),...
+               'uniformValues',false);
          else
-            if isempty(p.Results.infoKeys)
-               for i = 1:length(p.Results.info)
-                  infoKeys{i,1} = ['key' num2str(i)];
-               end
+            if iscell(eventMap)
+               self.map = containers.Map(self.times,eventMap,...
+                  'uniformValues',false);
+            elseif isvector(eventMap)
+               self.map = containers.Map(self.times,num2cell(eventMap),...
+                  'uniformValues',false);
+            elseif isa(eventMap,'containers.Map')
+               self.map = eventMap;
             else
-               infoKeys = p.Results.infoKeys;
+               error('Should not get here');
             end
-            self.info = containers.Map(infoKeys,p.Results.info,'uniformValues',false);
          end
-         
+                  
          % Set the window
-         if isempty(self.times)
-            self.window = [NaN NaN];
-         else
+%          if isempty(self.times)
+%             self.window = [NaN NaN];
+%          else
             if isempty(p.Results.window)
                self.window = [min(self.times) max(self.times)];
             else
                self.window = checkWindow(p.Results.window,size(p.Results.window,1));
             end
-         end
+%         end
 
          % Store original window and offset for resetting
          self.window_ = self.window;
@@ -567,7 +547,11 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       function count = get.count(self)
          % # of event times within windows
          times = self.windowedTimes;
-         count = cellfun(@(x) numel(x),self.windowedTimes);
+         if isempty(times)
+            count = [];
+         else
+            count = cellfun(@(x) numel(x),self.windowedTimes);
+         end
       end
             
 %       function self = selectByTimes(self,window)
@@ -818,32 +802,35 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       end
             
       function h = plot(self,varargin)
-         % Plot times & counting process
-         % TODO 
-         % vector input? Maybe just pool all times
-         % allow passing in handle
-         times = getTimes(self,self.window);
-         if isempty(times)
-            fprintf('No times in window.\n');
-            return;
-         end
-         countingProcess = self.countingProcess;
-
-         h = plotRaster(times,'grpBorder',false,...
-            'window',self.window,'yOffset',0.1,'markerStyle','x','markersize',6,...
-            'labelXAxis',false,'labelYaxis',false,varargin{:});
-         stairs(countingProcess(:,1),countingProcess(:,2));
-
-         axis tight;
-         xlabel('Time');
-         %xlabel(['Time (' self.timeUnits ')']);
-         ylabel('Cumulative events (N_t)');
+%          % Plot times & counting process
+%          % TODO 
+%          % vector input? Maybe just pool all times
+%          % allow passing in handle
+%          times = getTimes(self,self.window);
+%          if isempty(times)
+%             fprintf('No times in window.\n');
+%             return;
+%          end
+%          countingProcess = self.countingProcess;
+% 
+%          h = plotRaster(times,'grpBorder',false,...
+%             'window',self.window,'yOffset',0.1,'markerStyle','x','markersize',6,...
+%             'labelXAxis',false,'labelYaxis',false,varargin{:});
+%          stairs(countingProcess(:,1),countingProcess(:,2));
+% 
+%          axis tight;
+%          xlabel('Time');
+%          %xlabel(['Time (' self.timeUnits ')']);
+%          ylabel('Cumulative events (N_t)');
       end
       
       function [h,yOffset] = raster(self,varargin)
          % Raster plot
+         %
          % For a full description of the possible parameters, 
-         % see also: plotRaster
+         %
+         % SEE ALSO
+         % plotRaster
 
          p = inputParser;
          p.KeepUnmatched= true;
