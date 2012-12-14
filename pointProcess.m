@@ -315,8 +315,12 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          else
             self.times = eventTimes(ind);
             if isa(eventMap,'containers.Map')
-               % TODO remove keys that are not in times?
-               % ismember
+               % Remove keys that are not in times
+               keys = eventMap.keys;
+               ind = ~ismember(cell2mat(keys),self.times);
+               if sum(ind) > 0
+                  eventMap.remove(keys(ind));
+               end
             elseif ~isempty(eventMap)
                eventMap = eventMap(ind);
             end
@@ -331,26 +335,22 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             if iscell(eventMap)
                self.map = containers.Map(self.times,eventMap,...
                   'uniformValues',false);
+            elseif isa(eventMap,'containers.Map')
+               self.map = eventMap;
             elseif isvector(eventMap)
                self.map = containers.Map(self.times,num2cell(eventMap),...
                   'uniformValues',false);
-            elseif isa(eventMap,'containers.Map')
-               self.map = eventMap;
             else
                error('Should not get here');
             end
          end
                   
          % Set the window
-%          if isempty(self.times)
-%             self.window = [NaN NaN];
-%          else
-            if isempty(p.Results.window)
-               self.window = [min(self.times) max(self.times)];
-            else
-               self.window = checkWindow(p.Results.window,size(p.Results.window,1));
-            end
-%         end
+         if isempty(p.Results.window)
+            self.window = [min(self.times) max(self.times)];
+         else
+            self.window = checkWindow(p.Results.window,size(p.Results.window,1));
+         end
 
          % Store original window and offset for resetting
          self.window_ = self.window;
