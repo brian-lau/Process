@@ -123,17 +123,20 @@
 % New in R2010a is a constructor to specify key type as well as value type. 
 % M = containers.Map('KeyType', kType, 'ValueType', vType)
 % matlab.mixin.Copyable R2011a
+%    http://www.mathworks.com/help/matlab/ref/matlab.mixin.copyable.copy.html
 
 classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetget & matlab.mixin.Copyable
 %
-   properties(GetAccess = public, SetAccess = private)
+   properties
       % String identifier
       name
       
       % Information about point process. This is a dictionary keyed with
       % strings. Values can be arbitrary data types.
-      info
-            
+      info      
+   end
+   
+   properties(GetAccess = public, SetAccess = private)
       % Vector of event times
       times
 
@@ -247,35 +250,59 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          end
          
          self.name = p.Results.name;
-         
-         if any(isnan(p.Results.times))
-            error('pointProcess:Constructor:InputFormat',...
-               'Numeric times are required to construct a pointProcess object.');
-         end
-         
-         % Sort event times
-         % TODO perhaps don't use unique, as some events may all occur at
-         % the same time? (eg., time-insensitive event codes strobed at the
-         % same time)
-         [eventTimes,tInd] = unique(p.Results.times(:)');
 
-         % Sort corresponding map if not already a dictionary
-         if isempty(p.Results.map)
-            eventMap = [];
+% inputs = times and/or map as numeric or cell array w/ numel = times
+% inputs = no times and map is a containers.Map
+%     keyType must be double
+%     keys are assumed to be eventtimes
+
+%          if any(isnan(p.Results.times))
+%             error('pointProcess:Constructor:InputFormat',...
+%                'Numeric times are required to construct a pointProcess object.');
+%          end
+         %keyboard
+         if any(strcmp(varargin,'times')) && isa(p.Results.map,'containers.Map')
+            error('pointProcess:Constructor:InputCount',...
+               'Map is a dictionary, it''s keys are assumed to be pointProcess times.');
          elseif isa(p.Results.map,'containers.Map')
-            if all(isKey(p.Results.map,num2cell(eventTimes)))
-               eventMap = p.Results.map;
+            map = p.Results.map;
+            if strcmp(map.KeyType,'double')
+               eventTimes = cell2mat(map.keys);
+               eventMap = map;
             else
                error('pointProcess:Constructor:InputFormat',...
-                  'If map is a dictionary, keys must match times.');
+                  'If map is a dictionary, it''s keys are assumed to be doubles.');
+            end
+         elseif ~isempty(p.Results.times) && ~any(isnan(p.Results.times))
+            [eventTimes,tInd] = unique(p.Results.times(:)');
+            if isempty(p.Results.map)
+               eventMap = [];
+            else
+               eventMap = p.Results.map(tInd);
             end
          else
-            eventMap = p.Results.map(tInd);
+            error('pointProcess:Constructor:InputCount',...
+               'Map is not a containers.Map, you need to pass in valid times.');
          end
          
+%          % Sort event times
+%          [eventTimes,tInd] = unique(p.Results.times(:)');
+
+%          % Sort corresponding map if not already a dictionary
+%          if isempty(p.Results.map)
+%             eventMap = [];
+%          elseif isa(p.Results.map,'containers.Map')
+%             if all(isKey(p.Results.map,num2cell(eventTimes)))
+%                eventMap = p.Results.map;
+%             else
+%                error('pointProcess:Constructor:InputFormat',...
+%                   'If map is a dictionary, keys must match times.');
+%             end
+%          else
+%             eventMap = p.Results.map(tInd);
+%          end
+         
          % Define the start and end times of the process
-         % TODO note the possibility of negative times passed in, is this
-         % default sensible???
          if isempty(p.Results.tStart)
             self.tStart = min(eventTimes(1),0);
          else
@@ -301,7 +328,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          else
             if isempty(eventMap)
                self.map = containers.Map(eventTimes(ind),...
-                  cell(size(ind)));
+                  cell(size(ind)),'uniformValues',false);
             else
                if iscell(eventMap)
                   self.map = containers.Map(eventTimes(ind),eventMap(ind));
@@ -421,6 +448,11 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          %
          % SEE ALSO
          % offset, offsetTimes
+         
+         % TODO, this will bomb if a vector is passed in, even when it is
+         % the numel(self). Reason being, I don't know whether you want to
+         % try and apply each element of offset to eachof(self), or all of
+         % offset to eachof(self). Can I try/catch and infer?
          n = numel(self);
          if iscell(offset)
             offset = checkOffset(offset,n);
@@ -724,13 +756,13 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 %       end
 
       %% Functions
-      function addInfo(self)
-         % key-value addition to info property
-      end
-      
-      function removeInfo(self)
-         % key-value deletion to info property
-      end
+%       function addInfo(self)
+%          % key-value addition to info property
+%       end
+%       
+%       function removeInfo(self)
+%          % key-value deletion to info property
+%       end
       
       function chop(self,window)
          % TODO
@@ -1012,7 +1044,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       end
    end % methods(Private)
    
-   methods(Static)
+   methods(Static, Access = private)
       function bool = doesHashmapHaveValue(map,value,varargin)
          % Boolean for whether dictionary contains value
          %
