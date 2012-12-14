@@ -122,8 +122,9 @@
 % containers.Maps used (requires Matlab 2008b)
 % New in R2010a is a constructor to specify key type as well as value type. 
 % M = containers.Map('KeyType', kType, 'ValueType', vType)
+% matlab.mixin.Copyable R2011a
 
-classdef (CaseInsensitiveProperties = true) pointProcess < handle
+classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetget & matlab.mixin.Copyable
 %
    properties(GetAccess = public, SetAccess = private)
       % String identifier
@@ -172,11 +173,11 @@ classdef (CaseInsensitiveProperties = true) pointProcess < handle
    % Also window-dependent, but only calculated on window change
    % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
    properties (SetAccess = private, Transient = true)
-      % Should be function handle? defines intensity representations
-      lambdaEstimator = '';
-      
-      % count/window Hz? intensity should be a class, subclass of sampledProcess
-      lambda
+%       % Should be function handle? defines intensity representations
+%       lambdaEstimator = '';
+%       
+%       % count/window Hz? intensity should be a class, subclass of sampledProcess
+%       lambda
       
       % Cell array of event times contained in window(s). Note that any
       % offset is applied *after* windowing, so windowedTimes can be outside 
