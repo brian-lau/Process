@@ -118,12 +118,11 @@
 % rather than
 % coll.pointProcess = coll.pointProcess.method
 
-% Requirements
-% containers.Maps used (requires Matlab 2008b)
-% New in R2010a is a constructor to specify key type as well as value type. 
-% M = containers.Map('KeyType', kType, 'ValueType', vType)
-% matlab.mixin.Copyable R2011a
-%    http://www.mathworks.com/help/matlab/ref/matlab.mixin.copyable.copy.html
+% REQUIREMENTS
+% R2008b - containers.Maps
+% R2010a - containers.Maps constructor to specify key and value type
+% R2011a - matlab.mixin.Copyable for copying handle objects
+
 
 classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetget & matlab.mixin.Copyable
 %
@@ -241,6 +240,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          p.parse(varargin{:});
          
          self.name = p.Results.name;
+         
          % Create the info dictionary
          if isempty(p.Results.info)
             self.info = containers.Map('KeyType','char','ValueType','any');
@@ -568,6 +568,16 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % for an array of times
       end
       
+      function addTimes(self,times)
+         % Add times
+         % should handle numeric or map input
+         % should check existing times, 
+         % and prevent overwriting existing times, perhaps with flag to
+         % 1) overwrite
+         % 2) add eps to make unique
+         
+      end
+      
       function removeTimes(self,times)
          % Remove times and associated map keys
          % Note that this does NOT change tStart or tEnd
@@ -589,6 +599,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             end
          end
          
+         % Don't need this now since self is a handle object
          if 0%nargout == 0
             % MAP is a handle object, so a gotcha when this method is called
             % with no output is that MAP will have deleted keys, but the 
@@ -616,14 +627,13 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          array = arrayfun(@(x) x.map.values,self,'UniformOutput',false);
       end
       
-      function bool = doesMapHaveValue(self,value,varargin)
+      function [bool,keys] = doesMapHaveValue(self,value,varargin)
          % Boolean for whether MAP dictionary has value
          %
          % It is possible to restrict to keys by passing in additional args
          % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
          
-         % TODO, return map key as well do this is static method
-         bool = self.doesHashmapHaveValue({self.map},value,varargin{:});
+         [bool,keys] = self.doesHashmapHaveValue({self.map},value,varargin{:});
       end
       
       function removeMapKeys(self,keys)
@@ -758,6 +768,8 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % can we reconstruct? ie, coalesce back to original?
          %     no, chop allows overlapping or gapped windows, so there is
          %     no restriction that the data can be reconstructed
+         %     however, may still be useful. info is the same for all
+         %     elements (reference), but maps will have to be concatonated
          %
          % need to handle case where there is an offset?, 
          if nargin == 2
@@ -782,8 +794,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                   
                   temp = self.windowedTimes{i};                  
                   map = copyMap(self.map,num2cell(temp));
-                  % II. Avoid constructor, faster, but some properties
-                  % cannot be immutable
+                  
                   obj(i).name = self.name;
                   obj(i).info = self.info;
                   obj(i).times = self.windowedTimes{i};
@@ -794,9 +805,11 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                   obj(i).offset = self.offset(i);
                   % Need to set offset_ and window_
                end
-               %keyboard
+               
+               % Currently Matlab OOP doesn't allow the handle to be
+               % reassigned, ie self = obj, so we do a silent pass-by-value
+               % http://www.mathworks.com/matlabcentral/newsreader/view_thread/268574
                assignin('caller',inputname(1),obj);
-               %self = obj;
             end
          end
       end
@@ -1032,14 +1045,28 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
    end % methods(Private)
    
    methods(Static, Access = private)
-      function bool = doesHashmapHaveValue(map,value,varargin)
+      function [bool,keys] = doesHashmapHaveValue(map,value,varargin)
          % Boolean for whether dictionary contains value
+         %
+         % OUTPUT
+         % bool - boolean indicating whethe value exists in map
+         % keys - corresponding keys for which bool is true
          %
          % It is possible to restrict to keys by passing in additional args
          % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
+         %
+         % SEE ALSO
+         % mapfun
+         
          % TODO, checking for cell array input?
-         temp = mapfun(@(x,y) isequal(x,y),map,'params',{value},varargin{:});
+         
+         [temp,keys] = mapfun(@(x,y) isequal(x,y),map,'params',{value},varargin{:});
          bool = cellfun(@(x) any(x),temp);
+         if nargout == 2
+            for i = 1:numel(temp)
+               keys{i} = keys{i}(logical(temp{i}));
+            end
+         end
       end      
    end % methods(Static)
    
