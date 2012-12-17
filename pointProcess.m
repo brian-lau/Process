@@ -141,6 +141,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 
       % Information associated with each event time. This is a dictionary
       % keyed by each event time. Values can be arbitrary data types.
+      % TODO setting map is actually not private, due to handle???
       map
 
       % Time representation (placeholder)
@@ -158,7 +159,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       tEnd
    end
    
-   properties(GetAccess = public, SetAccess = public)
+   properties(GetAccess = public, SetAccess = public, SetObservable, AbortSet)
       % [min max] time window of interest
       window
       
@@ -167,20 +168,14 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
    end
    
    % These dependent properties all apply the window property
-   properties (GetAccess = public, SetAccess = private, Dependent = true, Transient = true)
+   properties(GetAccess = public, SetAccess = private, Dependent = true, Transient = true)
       % # of events within window
       count
    end
    
    % Also window-dependent, but only calculated on window change
    % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
-   properties (SetAccess = private, Transient = true)
-%       % Should be function handle? defines intensity representations
-%       lambdaEstimator = '';
-%       
-%       % count/window Hz? intensity should be a class, subclass of sampledProcess
-%       lambda
-      
+   properties(SetAccess = private, Transient = true)
       % Cell array of event times contained in window(s). Note that any
       % offset is applied *after* windowing, so windowedTimes can be outside 
       % of the windows property
@@ -199,6 +194,9 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       
       % Original offset
       offset_
+      
+      % Anticipating need to handle case of non-unique times?
+      threshold_ = 10*eps;
    end
    
    properties(GetAccess = public, SetAccess = private)
@@ -283,6 +281,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             if isempty(p.Results.map)
                eventMap = [];
             else
+               % Not a containers.Map
                eventMap = p.Results.map(tInd);
             end
          else
@@ -351,10 +350,21 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          else
             self.window = checkWindow(p.Results.window,size(p.Results.window,1));
          end
+         
+         % Set the offset
+         if isempty(p.Results.offset)
+            self.offset = 0;
+         else
+            self.offset = checkOffset(p.Results.offset,size(p.Results.offset,1));
+         end         
 
          % Store original window and offset for resetting
          self.window_ = self.window;
          self.offset_ = self.offset;
+         
+         % Property listeners
+         %addlistener(self,'window','PostSet',@pointProcess.zeroOffset);
+         %addlistener(self,'offset','PreSet',@pointProcess.undoOffset);
       end % constructor
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
@@ -366,7 +376,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % setWindow, windowTimes
          self.window = checkWindow(window,size(window,1));
          % Reset offset, which always follows window
-         self.offset = 'windowIsReset';
+          self.offset = 'windowIsReset';
          % Expensive, only call when windows are changed
          windowTimes(self);
       end
@@ -407,9 +417,9 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          %
          % SEE ALSO
          % setOffset, offsetTimes
-         if strcmp(offset,'windowIsReset')
-            self.offset = zeros(size(self.window,1),1);
-         else
+          if strcmp(offset,'windowIsReset')
+             self.offset = zeros(size(self.window,1),1);
+          else
             newOffset = checkOffset(offset,size(self.window,1));
             % Reset offset, which is always follows window
             offsetTimes(self,true);
@@ -417,7 +427,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             % Only call when offsets are changed
             offsetTimes(self);
          end
-      end
+       end
       
       function setOffset(self,offset)
          % Set the offset property. Works for array object input, where
@@ -444,7 +454,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             error('pointProcess:setOffset:InputFormat','Bad offset');
          end
       end
-      
+
       function array = windowFun(self,fun,nOpt,varargin)
          % Apply a function to windowedTimes
          % 
@@ -536,8 +546,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             
       function reset(self)
          % Reset times and windows to state when object was created         
-         n = numel(self);
-         for i = 1:n
+         for i = 1:numel(self)
             self(i).window = self(i).window_;
             self(i).offset = self(i).offset_;
          end
@@ -563,10 +572,10 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 %          self = chop(self);
 %       end
       
-      function selectByWindow()
-         % Should do the above, and make the selectByTimes actually search
-         % for an array of times
-      end
+%       function selectByWindow()
+%          % Should do the above, and make the selectByTimes actually search
+%          % for an array of times
+%       end
       
       function addTimes(self,times)
          % Add times
@@ -598,14 +607,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                self(i).offset = oldOffset;
             end
          end
-         
-         % Don't need this now since self is a handle object
-         if 0%nargout == 0
-            % MAP is a handle object, so a gotcha when this method is called
-            % with no output is that MAP will have deleted keys, but the 
-            % TIMES will be unchanged. Workaround by emulating pass-by-reference
-            assignin('caller',inputname(1),self);
-         end
       end
       
       function array = mapFun(self,fun,varargin)
@@ -632,7 +633,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          %
          % It is possible to restrict to keys by passing in additional args
          % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
-         
          [bool,keys] = self.doesHashmapHaveValue({self.map},value,varargin{:});
       end
       
@@ -716,14 +716,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % events(1).map.values(num2cell(events(1).times((events(1).windowIndex{1}))))
       end
       
-%       function lambda = get.lambda(self)
-%          % # of events within windows
-%          times = self.windowedTimes;
-%          for i = 1:length(times)
-%             lambda(i,1) = length(times{i}) / (self.window(i,2)-self.window(i,1));
-%          end
-%       end
-
 %       function intervals = get.intervals(self)
 %          % Interevent interval representation
 % %         times = getTimes(self,self.window);
@@ -750,13 +742,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 %       end
 
       %% Functions
-%       function addInfo(self)
-%          % key-value addition to info property
-%       end
-%       
-%       function removeInfo(self)
-%          % key-value deletion to info property
-%       end
       
       function chop(self,window)
          % TODO
@@ -803,6 +788,9 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                   obj(i).tEnd = self.window(i,2);
                   obj(i).window = self.window(i,:);
                   obj(i).offset = self.offset(i);
+                  
+                  %addlistener(obj(i),'window','PostSet',@pointProcess.zeroOffset);
+                  %addlistener(obj(i),'offset','PreSet',@pointProcess.undoOffset);
                   % Need to set offset_ and window_
                end
                
@@ -1067,7 +1055,34 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                keys{i} = keys{i}(logical(temp{i}));
             end
          end
-      end      
+      end
+      
+%       function zeroOffset(obj,varargin)
+%          aObj = varargin{1}.AffectedObject;
+%          if numel(aObj) > 1
+%             error('How did I get here???');
+%          end
+%          aObj.offset = zeros(size(aObj.window,1),1);
+%          fprintf('Zeroed offset!\n');
+%       end
+%       
+%       function undoOffset(obj,varargin)
+%          aObj = varargin{1}.AffectedObject;
+%          if numel(aObj) > 1
+%             error('How did I get here???');
+%          end
+%          
+%          offset = -aObj.offset;
+%          if numel(offset) == numel(aObj.windowedTimes)
+%             for i = 1:numel(offset)
+%                aObj.windowedTimes{i,1} = aObj.windowedTimes{i,1} + offset(i);
+%             end
+%             fprintf('Undid offset!\n');
+%          else
+%             fprintf('Did not undo offset. numel(offset) ~= numel(windows)\n');
+%          end
+%      end
+
    end % methods(Static)
    
 end % classdef
