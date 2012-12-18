@@ -1,3 +1,7 @@
+% Make a parent, abstract class
+
+% Requirements,
+%  R2010b, enumerations
 classdef eventDefs
    properties
       %
