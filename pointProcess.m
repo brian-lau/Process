@@ -716,8 +716,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % else we will chop based on the current windows
          nWindow = size(self.window,1);
          obj(nWindow) = pointProcess();
-         % Map keys are event times without offset, so store here and
-         % set below
+         % Map keys are event times without offset, so store here and set below
          oldOffset = self.offset;
          self.offset = 0;
          for i = 1:nWindow
@@ -760,7 +759,32 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % Should we just mush all the info together?
          % add offset_ back to map
       end
-            
+      
+      function addEventAsProp(self,eventEnums)
+         if numel(self) > 1
+            for i = 1:numel(self)
+               addEventAsProp(self(i),eventEnums);
+            end
+            return;
+         end
+         if ~all(mapfun(@(x)isa(x,'eventDefs'),self.map))
+            error('pointProcess:addEventAsProp:InputFormat',...
+               'addEventAsProp requires all map values to be eventDefs enumerations.');
+         else
+            events = cat(2,self.getMapValues{:}{:});
+         end
+         for i = 1:numel(eventEnums)
+            [bool,keys] = doesMapHaveValue(self,eventEnums(i));
+            if bool
+               keys = keys{:};
+               % add as dynamic prop
+               addprop(self,char(eventEnums(i)));
+               self.(char(eventEnums(i))) = cell2mat(keys);
+               removeTimes(self,cell2mat(keys));
+            end
+         end
+      end
+      
       function h = plot(self,varargin)
 %          % Plot times & counting process
 %          % TODO 
@@ -1009,7 +1033,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          %
          % OUTPUT
          % bool - boolean indicating whethe value exists in map
-         % keys - corresponding keys for which bool is true
+         % keys - corresponding cell array of keys for which bool is true
          %
          % It is possible to restrict to keys by passing in additional args
          % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
