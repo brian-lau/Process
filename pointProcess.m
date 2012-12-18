@@ -693,7 +693,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       
       function chop(self,window)
          % TODO
-         % marks create new map for each window
          % can we rechop?
          %     yes, not sure its useful, but i guess it should work.
          %     eg., chop first by trials, then chop relative to an event
@@ -715,26 +714,40 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                return;
             else
                obj(nWindow) = pointProcess();
+               % Map keys are event times without offset, so store here and
+               % set below
+               oldOffset = self.offset;
+               self.offset = 0;
                for i = 1:nWindow
                   % how to deal with offset, should zero to window, but
                   % store windowStart as offset_? perhaps add original
                   % offset_?
                   
-                  temp = self.windowedTimes{i};                  
                   obj(i).name = self.name;
                   % The info map will be a reference for all elements
                   obj(i).info = self.info;
-                  obj(i).times = self.windowedTimes{i};
+                  
+                  if 1
+                     % Align to the leading edge of each window
+                     shift = self.window(i,1);
+                  else
+                     shift = 0;
+                  end
+                  
+                  %obj(i).times = self.windowedTimes{i} - shift;
                   % Map is a handle, so we copy, resetting keys
-                  obj(i).map = copyMap(self.map,num2cell(temp));
-                  obj(i).tStart = self.window(i,1);
-                  obj(i).tEnd = self.window(i,2);
-                  obj(i).window = self.window(i,:);
-                  obj(i).offset = self.offset(i);
+                  obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
+                     num2cell(self.windowedTimes{i} - shift));
+                  obj(i).times = cell2mat(obj(i).map.keys);
+
+                  obj(i).tStart = self.window(i,1) - shift;
+                  obj(i).tEnd = self.window(i,2) - shift;
+                  obj(i).window = self.window(i,:) - shift;
+                  obj(i).offset = oldOffset(i);
                   
                   % Need to set offset_ and window_
                   obj(i).window_ = obj(i).window;
-                  obj(i).offset_ = self.offset_;
+                  obj(i).offset_ = self.offset_ + self.window(i,1);
                end
                
                % Currently Matlab OOP doesn't allow the handle to be
@@ -743,6 +756,10 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                assignin('caller',inputname(1),obj);
             end
          end
+      end
+      
+      function merge(self)
+         % add offset_ back to 
       end
             
       function h = plot(self,varargin)
@@ -847,9 +864,17 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             % should merge the objects
             % order will matter, how to deal with names & info?
          elseif isa(x,'pointProcess') && isnumeric(y)
-            [x.offset] = deal(list(y));
+            if numel(x) > 1
+               [x.offset] = deal(list(y));
+            else
+               [x.offset] = deal(y);
+            end
          elseif isa(y,'pointProcess') && isnumeric(x)
-            [y.offset] = deal(list(x));
+            if numel(y) > 1
+               [y.offset] = deal(list(x));
+            else
+               [y.offset] = deal(x);
+            end
          else
             error('Plus not defined for inputs');
          end
@@ -861,9 +886,17 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             % not done yet
             % should delete the common times from object
          elseif isa(x,'pointProcess') && isnumeric(y)
-            [x.offset] = deal(list(-y));
+            if numel(x) > 1
+               [x.offset] = deal(list(-y));
+            else
+               [x.offset] = deal(-y);
+            end
          elseif isa(y,'pointProcess') && isnumeric(x)
-            [y.offset] = deal(list(-x));
+            if numel(y) > 1
+               [y.offset] = deal(list(-x));
+            else
+               [y.offset] = deal(-x);
+            end
          else
             error('Minus not defined for inputs');
          end
