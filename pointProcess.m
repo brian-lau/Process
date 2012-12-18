@@ -691,7 +691,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 
       %% Functions
       
-      function chop(self,window)
+      function chop(self,shiftToWindow)
          % TODO
          % can we rechop?
          %     yes, not sure its useful, but i guess it should work.
@@ -704,62 +704,61 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          %     elements (reference), but maps will have to be concatonated
          %
          % need to handle case where there is an offset?, 
-         if nargin == 2
-            
-         else
-            % else we will chop based on the current windows
-            nWindow = size(self.window,1);
-            if 0%nWindow == 1
-               % restrict event times to window? destructive
-               return;
-            else
-               obj(nWindow) = pointProcess();
-               % Map keys are event times without offset, so store here and
-               % set below
-               oldOffset = self.offset;
-               self.offset = 0;
-               for i = 1:nWindow
-                  % how to deal with offset, should zero to window, but
-                  % store windowStart as offset_? perhaps add original
-                  % offset_?
-                  
-                  obj(i).name = self.name;
-                  % The info map will be a reference for all elements
-                  obj(i).info = self.info;
-                  
-                  if 1
-                     % Align to the leading edge of each window
-                     shift = self.window(i,1);
-                  else
-                     shift = 0;
-                  end
-                  
-                  %obj(i).times = self.windowedTimes{i} - shift;
-                  % Map is a handle, so we copy, resetting keys
-                  obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
-                     num2cell(self.windowedTimes{i} - shift));
-                  obj(i).times = cell2mat(obj(i).map.keys);
-
-                  obj(i).tStart = self.window(i,1) - shift;
-                  obj(i).tEnd = self.window(i,2) - shift;
-                  obj(i).window = self.window(i,:) - shift;
-                  obj(i).offset = oldOffset(i);
-                  
-                  % Need to set offset_ and window_
-                  obj(i).window_ = obj(i).window;
-                  obj(i).offset_ = self.offset_ + self.window(i,1);
-               end
-               
-               % Currently Matlab OOP doesn't allow the handle to be
-               % reassigned, ie self = obj, so we do a silent pass-by-value
-               % http://www.mathworks.com/matlabcentral/newsreader/view_thread/268574
-               assignin('caller',inputname(1),obj);
-            end
+         if nargin == 1
+            shiftToWindow = true;
          end
-      end
+         
+         if numel(self) > 1
+            error('pointProcess:chop:InputCount',...
+               'You can only chop a scalar pointProcess.');
+         end
+         
+         % else we will chop based on the current windows
+         nWindow = size(self.window,1);
+         obj(nWindow) = pointProcess();
+         % Map keys are event times without offset, so store here and
+         % set below
+         oldOffset = self.offset;
+         self.offset = 0;
+         for i = 1:nWindow
+            obj(i).name = self.name;
+            % The info map will be a reference for all elements
+            obj(i).info = self.info;
+            
+            if shiftToWindow
+               % Align to the leading edge of each window
+               shift = self.window(i,1);
+            else
+               shift = 0;
+            end
+            
+            %obj(i).times = self.windowedTimes{i} - shift;
+            % Map is a handle, so we copy, resetting keys
+            obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
+               num2cell(self.windowedTimes{i} - shift));
+            obj(i).times = cell2mat(obj(i).map.keys);
+            
+            obj(i).tStart = self.window(i,1) - shift;
+            obj(i).tEnd = self.window(i,2) - shift;
+            obj(i).window = self.window(i,:) - shift;
+            obj(i).offset = oldOffset(i);
+            
+            % Need to set offset_ and window_
+            obj(i).window_ = obj(i).window;
+            obj(i).offset_ = self.offset_ + self.window(i,1);
+         end
+         
+         % Currently Matlab OOP doesn't allow the handle to be
+         % reassigned, ie self = obj, so we do a silent pass-by-value
+         % http://www.mathworks.com/matlabcentral/newsreader/view_thread/268574
+         assignin('caller',inputname(1),obj);
+      end % chop
       
       function merge(self)
-         % add offset_ back to 
+         % method to merge chopped pointProcess
+         % What if there is a pointProcess array, but it wasn't chopped?
+         % Should we just mush all the info together?
+         % add offset_ back to map
       end
             
       function h = plot(self,varargin)
