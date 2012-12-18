@@ -9,14 +9,6 @@
 %
 % time conversion between units
 %
-% when info values are themselves pointProcesses, should we check time
-% consistency with the parent pointProcess? ie tAbs?
-% Also, when we reset, should we reset events?
-%
-% currently tAbs field is used for resetting and for consistency in
-% pointProcessCollections. Should there be a boolean to determine whether
-% to add tAbs to all operations when handling an array of pointProcesses???
-%
 % any way to ensure column or row outputs when someone creates matrices of
 % pointProcesses?
 % As many of the methods as possible for pointProcess will handle array
@@ -28,10 +20,6 @@
 %     getTimes should return a row if row inputs, and a column if column
 %     inputs
 %   THIS is done for getTimes now, need to check ALL METHODS
-%
-%
-% HANDLE versus VALUE class
-%
 %
 % How to ensure we can always load the data? How to save? as struct and use
 % savObj and loadObj methods
@@ -49,46 +37,11 @@
 %http://kabamaru.blogspot.fr/2012/06/saving-and-loading-functionality-to-gml.html
 %   started by including version property
 %
-%   If I do the above, should also be a method to "break" a multiply
-%   windowed pointProcess into a collection?
-%
-% Went with the above in a branch
-% Works nicely, but an explicit decision should be made about how to handle
-% arrays of pointProcesses. When a method is called on an array (not the
-% default getters or setters), self is also an array.
-%   One possibility is to try and ensure that all methods can sensibly
-%   handle array inputs. One sensible way is to simply loop over self and
-%   simply call the method for each element. 
-%   The other possibility is to force the collection object to handle this,
-%   in which case, it probably makes sense to forbid calling pointProcess
-%   methods with array inputs???
-%
-% How to handle align? Perhaps we only the possibilities:
-%   1) scalar, applied to all windows
-%   2) vector, one per window...
-%   probably need an offset property (replace tAbsShift)
-%   either way, there should be one interface, through getWindowedTimes
-%
-% Perhaps generalize the interface to the idea that we view eventTimes
-%   through a transform.
-%     offset               scalar per window
-%     window               % 2x1 vector per window
-%     scale (time-rescale) rate function per window
-% then windowedTimes -> transformTimes
-% getWindowedTimes -> transform
-%
-%
 % need an isValidWindow property
-% use the start and end times to check whether there is actually the
-% potential for event times in the windows, otherwise assign nan
+%  use the start and end times to check whether there is actually the
+%  potential for event times in the windows, otherwise assign false
+%  This should be settable (ie, some event before tEnd maybe?)
 %
-% consider creating an event class that will include a single time, then
-% pointProcess will have an array of events that have a common origin. This
-% is a natural way to keep the mark together with it's time. Problem is
-% there will be many events, we will run into penalties for object access.
-%
-% window should have the option to destroy data? implement in chop method
-
 % OBJECT ARRAYS
 % standard getters seems to sequentially call their method on
 % each element of the object array
@@ -361,10 +314,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % Store original window and offset for resetting
          self.window_ = self.window;
          self.offset_ = self.offset;
-         
-         % Property listeners
-         %addlistener(self,'window','PostSet',@pointProcess.zeroOffset);
-         %addlistener(self,'offset','PreSet',@pointProcess.undoOffset);
       end % constructor
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
@@ -376,7 +325,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % setWindow, windowTimes
          self.window = checkWindow(window,size(window,1));
          % Reset offset, which always follows window
-          self.offset = 'windowIsReset';
+         self.offset = 'windowIsReset';
          % Expensive, only call when windows are changed
          windowTimes(self);
       end
@@ -495,7 +444,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % spk.windowFun(@(x) mean(diff(x)))
          %
          % % Maximum event time and index in each window
-         % result = spk.windowFun(@(x) max(x))
+         % spk.windowFun(@(x) max(x))
          %
          % % Return the maximum and it's index (nOpt = 2). Since both
          % % outputs of MAX are scalar, the elements of RESULT are vectors,
@@ -555,8 +504,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       %% Get Functions
       function count = get.count(self)
          % # of event times within windows
-         times = self.windowedTimes;
-         if isempty(times)
+         if isempty(self.windowedTimes)
             count = [];
          else
             count = cellfun(@(x) numel(x),self.windowedTimes);
@@ -768,30 +716,25 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             else
                obj(nWindow) = pointProcess();
                for i = 1:nWindow
-                  % Leave info alone
-                  % Copy marks in window to new object, resetting keys
-%                   temp = self.windowIndex{i};                  
-%                   marks = copyMap(self.marks,num2cell(temp),...
-%                      num2cell(temp - temp(1) + 1));
                   % how to deal with offset, should zero to window, but
                   % store windowStart as offset_? perhaps add original
                   % offset_?
                   
                   temp = self.windowedTimes{i};                  
-                  map = copyMap(self.map,num2cell(temp));
-                  
                   obj(i).name = self.name;
+                  % The info map will be a reference for all elements
                   obj(i).info = self.info;
                   obj(i).times = self.windowedTimes{i};
-                  obj(i).map = map;
+                  % Map is a handle, so we copy, resetting keys
+                  obj(i).map = copyMap(self.map,num2cell(temp));
                   obj(i).tStart = self.window(i,1);
                   obj(i).tEnd = self.window(i,2);
                   obj(i).window = self.window(i,:);
                   obj(i).offset = self.offset(i);
                   
-                  %addlistener(obj(i),'window','PostSet',@pointProcess.zeroOffset);
-                  %addlistener(obj(i),'offset','PreSet',@pointProcess.undoOffset);
                   % Need to set offset_ and window_
+                  obj(i).window_ = obj(i).window;
+                  obj(i).offset_ = self.offset_;
                end
                
                % Currently Matlab OOP doesn't allow the handle to be
@@ -904,11 +847,9 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             % should merge the objects
             % order will matter, how to deal with names & info?
          elseif isa(x,'pointProcess') && isnumeric(y)
-            [x.offset] = deal(y);
-            %obj = x;
+            [x.offset] = deal(list(y));
          elseif isa(y,'pointProcess') && isnumeric(x)
-            [y.offset] = deal(x);
-            %obj = y;
+            [y.offset] = deal(list(x));
          else
             error('Plus not defined for inputs');
          end
@@ -920,11 +861,9 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             % not done yet
             % should delete the common times from object
          elseif isa(x,'pointProcess') && isnumeric(y)
-            [x.offset] = deal(-y);
-            %obj = x;
+            [x.offset] = deal(list(-y));
          elseif isa(y,'pointProcess') && isnumeric(x)
-            [y.offset] = deal(-x);
-            %obj = y;
+            [y.offset] = deal(list(-x));
          else
             error('Minus not defined for inputs');
          end
@@ -994,7 +933,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
    
    methods(Access = private)
       function windowTimes(self)
-         %
+         % Window times and set windowIndex and isValidWindow
          nWindow = size(self.window,1);
          times = self.times;
          window = self.window;
@@ -1016,12 +955,12 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          self.isValidWindow = isValidWindow;
       end
       
-      function offsetTimes(self,reset)
-         %
+      function offsetTimes(self,undo)
+         % Offset times, 
          if nargin == 1
-            reset = false;
+            undo = false;
          end
-         if reset
+         if undo
             offset = -self.offset;
          else
             offset = self.offset;
@@ -1057,32 +996,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          end
       end
       
-%       function zeroOffset(obj,varargin)
-%          aObj = varargin{1}.AffectedObject;
-%          if numel(aObj) > 1
-%             error('How did I get here???');
-%          end
-%          aObj.offset = zeros(size(aObj.window,1),1);
-%          fprintf('Zeroed offset!\n');
-%       end
-%       
-%       function undoOffset(obj,varargin)
-%          aObj = varargin{1}.AffectedObject;
-%          if numel(aObj) > 1
-%             error('How did I get here???');
-%          end
-%          
-%          offset = -aObj.offset;
-%          if numel(offset) == numel(aObj.windowedTimes)
-%             for i = 1:numel(offset)
-%                aObj.windowedTimes{i,1} = aObj.windowedTimes{i,1} + offset(i);
-%             end
-%             fprintf('Undid offset!\n');
-%          else
-%             fprintf('Did not undo offset. numel(offset) ~= numel(windows)\n');
-%          end
-%      end
-
    end % methods(Static)
    
 end % classdef
