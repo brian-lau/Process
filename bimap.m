@@ -10,8 +10,8 @@ classdef bimap < handle
    methods
       function self = bimap(varargin)
          
-         %left = containers.Map(varargin{:});
-         left = mymap(varargin{:});
+         left = containers.Map(varargin{:});
+         %left = mymap(varargin{:});
          lKeys = left.keys;
          lVals = left.values;
          kTypes = {'char' 'double' 'single' 'int32' 'uint32' 'int64' 'uint64'};
@@ -43,7 +43,8 @@ classdef bimap < handle
             end
             
             % Create an internal mapping from id->struct, and reassign lVals
-            self.right_ = mymap(id,lVals);
+            self.right_ = containers.Map(id,lVals);
+            %self.right_ = mymap(id,lVals);
             self.useID = true;
             lVals = id;
          else
@@ -55,20 +56,21 @@ classdef bimap < handle
          % will have to cast these in the right map
          vTypesToCast = setdiff(vTypes,kTypes);
          
-         %% Build reverse map
+         %% Build right map
          % The left value type is compatible with being a right key
          if ismember(left.ValueType,vTypesToCast)
-            % cast to double
+            % TODO cast to double
          end
          
          if strcmp(left.ValueType,'char')
             [rKeys,I,J] = unique(lVals);
-         else % numeric left value
+         else
             [rKeys,I,J] = unique(cat(2,lVals{:}));
          end
          if numel(rKeys) == numel(lKeys)
             % A unique mapping, just need to sort accordingly
-            right = mymap(rKeys,lKeys(I));
+            %right = mymap(rKeys,lKeys(I));
+            right = containers.Map(rKeys,lKeys(I));
             %cellfun(@(x,y) fprintf('%s : %g\n',x,y),rKeys,rVals)
          else
             % Right keys map to multiple left keys. The right value is
@@ -87,7 +89,8 @@ classdef bimap < handle
                   rValues{i} = cat(2,lKeys{ind});
                end
             end
-            right = mymap(rKeys,rValues);
+            right = containers.Map(rKeys,rValues);
+            %right = mymap(rKeys,rValues);
          end
          
          self.left = left;
@@ -103,32 +106,199 @@ classdef bimap < handle
       
       % get method from containers.Map
       % -------------------------------
-      function theValue = get(self, theKey)
-         theValue = self.left(theKey);
+      function theValue = get(self,key)
+         try
+            if numel(key) > 1
+               theValue = self.left.values(key);
+            else
+               theValue = self.left(key);
+            end
+         catch
+            error('Key not found');
+         end
       end
-      function theValue = getR(self, theKey)
-         theValue = self.right(theKey);
+      
+      function theValue = getR(self,key)
+         if self.useID
+            if numel(key) > 1
+               theValue = self.right.values(...
+                  cellfun(@(x) x.id,key,'UniformOutput',false));
+            else
+               theValue = self.right(key.id);
+            end
+         else
+            if numel(key) > 1
+               theValue = self.right.values(key);
+            else
+               theValue = self.right(key);
+            end
+         end
       end
-      function tf = isKey(self, keys)
-         tf = isKey(self.left, keys);
+      
+      function theValue = keys(self)
+         theValue = keys(self.left);
       end
-      function tf = isKeyR(self, keys)
-         tf = isKey(self.right, keys);
+      
+      function theValue = keysR(self)
+         if self.useID
+            theValue = self.right_.values;
+         else
+            theValue = keys(self.right);
+         end
       end
+      
+      function bool = isKey(self,keys)
+         bool = isKey(self.left,keys);
+      end
+      
+      function bool = isKeyR(self,keys)
+         if self.useID
+            try
+               if numel(keys) > 1
+               bool = isKey(self.right,...
+                  cellfun(@(x) x.id,keys,'UniformOutput',false));
+               else
+                  bool = isKey(self.right,keys.id);
+               end
+            catch err
+               if strcmp(err.identifier,'MATLAB:nonStrucReference')
+                  bool = false(size(keys));
+               else
+                  rethrow(err);
+               end
+            end
+         else
+            bool = isKey(self.right,keys);
+         end
+      end
+      
       function theLength = length(self)
          theLength = length(self.left);
       end
+      
       function theLength = lengthR(self)
          theLength = length(self.right);
       end
-      function theValues = values(self, varargin)
-         theValues = values(self.left, varargin{:});
+      
+      function theValues = values(self,varargin)
+         if nargin == 1
+            theValues = values(self.left);
+         else
+            if iscell(varargin{1})
+               theValues = values(self.left,varargin{:});
+            else
+               theValues = self.left(varargin{:});
+            end
+         end
       end
-      function theValues = valuesR(self, varargin)
-         theValues = values(self.right, varargin{:});
+      
+      function theValues = valuesR(self,varargin)
+         if self.useID
+            if isempty(varargin)
+               theValues = values(self.right);
+            else
+               if numel(varargin{1}) > 1
+                  theValues = values(self.right,cellfun(@(x) x.id,varargin{:},'UniformOutput',false));
+               else
+                  % TODO catch error if key is not structure
+                  theValues = self.right(varargin{1}.id);
+               end
+            end
+         else
+            theValues = values(self.right, varargin{:});
+         end
       end
-%       function remove(self, varargin)
-%          remove(self.map, varargin{:});
+      
+      function remove(self,varargin)
+         % Remove left key/value pair (right map updated correspondingly)
+         
+         lKey = varargin{:};
+         % Find the left value (right key)
+         rKey = get(self,lKey);
+         
+         % The left key (right value) to delete will be in this right value
+         rVal = getR(self,rKey);
+         % Remove the desired left key, and make a new right value
+         if isnumeric(rVal)
+            ind = rVal == lKey;
+         else
+            ind = strcmp(lKey,rVal);
+         end
+         rValNew = rVal;
+         rValNew(ind) = [];
+         
+         % Remove the left key/value pair
+         remove(self.left,lKey);
+         % Reassign the right key/value pair
+         if self.useID
+            self.right(rKey.id) = rValNew;
+         else
+            self.right(rKey) = rValNew;
+         end
+         % TODO, if the right value ends up empty, do we delete the key?
+         % probably, to match the behavior of containers.Map
+         % If so, we have to adjust self.right_
+      end
+      
+      function removeR(self,varargin)
+         % Remove right key/value pair (left map updated correspondingly)
+         
+         lKey = varargin{:};
+         % Find the left value (right key)
+         rKey = get(self,lKey);
+         
+         % The left key (right value) to delete will be in this right value
+         rVal = getR(self,rKey);
+         % Remove the desired left key, and make a new right value
+         if isnumeric(rVal)
+            ind = rVal == lKey;
+         else
+            ind = strcmp(lKey,rVal);
+         end
+         rValNew = rVal;
+         rValNew(ind) = [];
+         
+         % Remove the left key/value pair
+         remove(self.left,lKey);
+         % Reassign the right key/value pair
+         if self.useID
+            self.right(rKey.id) = rValNew;
+         else
+            self.right(rKey) = rValNew;
+         end
+         % TODO, if the right value ends up empty, do we delete the key?
+         % probably, to match the behavior of containers.Map
+         % If so, we have to adjust self.right_
+      end
+%       function removeR(self, varargin)
+%          remove(self.right, varargin{:});
+%          remove(self.left, varargin{:});
+%          remove(self.right_, varargin{:});
+%       end
+%                         case {'remove'}
+% remove must be treated carefully. removing from left requires rebuilding
+% right? Perhaps not, since left keys are unique, you can search through
+% the right values, and break when we find it.
+% 1) remove the left key/value pair
+% 2) search the right values...
+% Removing right key. also not so bad, but you have to
+% 1) remove the left keys = right values
+% 2) remove the right keys
+% 3) remove the right_ keys with corresponding id
+%                            remove(self.left, key);
+%                            return
+%       function bool = containsValue(self,values,keys)
+%          % This is O(n)... 
+%          if nargin < 3
+%             % Check values for all keys
+%             keys = self.keys;
+%          end
+%          vals = self.values(keys);
+%          for i = 1:numel(values)
+%             bool(i) = any(...
+%                cellfun(@(x,y) isequal(x,y),vals,repmat(values(i),size(vals)))...
+%                );
+%          end
 %       end
 
       % subsref, MATLAB uses the built-in subsref function to interpret indexed
@@ -142,140 +312,127 @@ classdef bimap < handle
          % theStruct is a struct array with two fields, type and subs
          % ----------------------------------------------------------
          switch (length(theStruct))
-            % m('TEMP')
-            % m.TEMP
+            % map(ARG)
+            % map.ARG
             case 1
                switch theStruct.type
                   case '.'
                      switch theStruct.subs
                         case 'keys'
-                           theValue = keys(self.left);
-                           return
+                           theValue = keys(self); return;
                         case 'keysR'
-                           if self.useID
-                              theValue = self.right_.values;
-                           else
-                              theValue = keys(self.right);
-                           end
-                           return
+                           theValue = keysR(self); return;
                         case 'values'
-                           theValue = values(self.left);
-                           return
+                           theValue = values(self); return;
                         case 'valuesR'
-                           theValue = values(self.right);
-                           return
+                           theValue = valuesR(self); return;
                         case 'length'
-                           theValue = length(self.left);
-                           return
+                           theValue = length(self); return;
                         case 'lengthR'
-                           theValue = length(self.right);
-                           return
+                           theValue = lengthR(self); return;
                      end
                   case '()'
                      % Access the left map by key
-                     key = theStruct.subs{:};
-                     if iscell(theStruct.subs{1})
-                        theValue = self.left.values(key);
-                     else
-                        theValue = self.left(key);
-                     end
-                     return
+                     % Access the right key using getR method
+                     theValue = values(self,theStruct.subs{:}); return;
                end
                
-               % m('TEMP').long_name
-               % m.TEMP.long_name
-               % m.get('TEMP')
-               % get(m,'TEMP')
-               % m.isKey('TEMP')
-               % ------------------
+            % m('TEMP').long_name
+            % m.TEMP.long_name
+            % m.get('TEMP')
+            % get(m,'TEMP')
+            % m.isKey('TEMP')
+            % ------------------
             case 2
                switch theStruct(1).type
                   % m.TEMP.long_name
                   % m.get('TEMP')
                   case '.'
-                     if iscell(theStruct(2).subs{1})
-                        key = theStruct(2).subs{:};
-                     else
-                        key = theStruct(2).subs;
-                     end %
+                     key = theStruct(2).subs{:};
                      switch theStruct(1).subs
                         case 'get'
-                           theValue = self.left(key);
+                           theValue = get(self,key);
                            return
                         case 'getR'
-                           theValue = self.right(key);
+                           theValue = getR(self,key);
                            return
-                           %                         case {'remove'}
-                           %                            remove(self.left, key);
-                           %                            return
+%                         case {'remove'}
+% remove must be treated carefully. removing from left requires rebuilding
+% right? Perhaps not, since left keys are unique, you can search through
+% the right values, and break when we find it.
+% Removing right key. also not so bad, but you have to
+% 1) remove the left keys = right values
+% 2) remove the right keys
+% 3) remove the right_ keys with corresponding id
+%                            remove(self.left, key);
+%                            return
                         case 'isKey'
-                           theValue = isKey(self.left,key);
+                           theValue = isKey(self,key);
                            return
                         case 'isKeyR'
-                           if self.useID
-                              theValue = isKey(self.right,key{1}.id);
-                           else
-                              theValue = isKey(self.right,key);
-                           end
+                           theValue = isKeyR(self,key);
                            return
                         case 'values'
-                           theValue = values(self.left,key);
+                           theValue = values(self,key);
                            return
                         case 'valuesR'
-                           theValue = values(self.right,key);
+                           theValue = valuesR(self,key);
                            return
-                        otherwise
-                           % Don't understand what this is for
-                           theValue = self.map(key);
-                           if isfield(theValue, theStruct(2).subs)
-                              theValue = self.map(key).(theStruct(2).subs);
-                           else
-                              error('unknow method %s for Map object', theStruct(1).subs);
-                           end
+%                         otherwise % not sure I can get here???
+%                            % Access a field of left map value
+%                            theValue = get(self,key);
+%                            if isfield(theValue, theStruct(2).subs)
+%                               theValue = theValue.(theStruct(2).subs);
+%                            else
+%                               error('unknow method %s for bimap object', theStruct(2).subs);
+%                            end
                      end
-                     
-                     % m('TEMP').long_name
-                  case {'()'}
-                     if iscell(theStruct(1).subs)
-                        key = theStruct(1).subs{:};
-                     else
-                        key = theStruct(1).subs;
-                     end
-                     theValue = self.left(key);
+                  case '()'
+                     % Access a field of left map value
+                     % m(ARG1).ARG2
+                     theValue = get(self,theStruct(1).subs{:});
                      switch theStruct(2).type
                         case '.'
-                           if isfield(theValue, theStruct(2).subs)
-                              theValue = self.map(key).(theStruct(2).subs);
-                           else
-                              error('''%s'' is not a field structure for key ''%s''', ...
-                                 theStruct(2).subs, key);
+                           try
+                              if iscell(theValue)
+                                 % Cell array of keys
+                                 temp = cat(2,theValue{:});
+                                 theValue = [temp.(theStruct(2).subs)];
+                              else
+                                 theValue = theValue.(theStruct(2).subs);
+                              end
+                           catch
+                              error('''%s'' is not a field structure for key-value', ...
+                                 theStruct(2).subs);
                            end
                      end
                end
-               
-               % m.get('TEMP').name
-               % get(m,'TEMP').name  not allowed
+            case 3
+               % m.get(ARG1).ARG2
+               % get(m,ARG1).ARG2  not allowed
+               % getR not implemented since the bimap is asymmetric, right
+               % values (left keys) cannot be structs or objects
                % -------------------------------
-            case 3 % only for m.get('TEMP').data rule
                switch theStruct(1).type
-                  case {'.'}
+                  case '.'
                      switch theStruct(1).subs
                         case 'get'
-                           if iscell(theStruct(2).subs)
-                              key = theStruct(2).subs{:};
-                           else
-                              key = theStruct(2).subs;
-                           end
-                           theValue = self.map(key);
-                           if isfield(theValue, theStruct(3).subs)
-                              theValue = self.map(key).(theStruct(3).subs);
-                           else
-                              error('(%s) is not struct member for key (%s)', ...
-                                 theStruct(3).subs, key);
+                           key = theStruct(2).subs{:};
+                           theValue = get(self,key);
+                           try
+                              if iscell(theValue)
+                                 % Cell array of keys
+                                 temp = cat(2,theValue{:});
+                                 theValue = [temp.(theStruct(3).subs)];
+                              else
+                                 theValue = theValue.(theStruct(3).subs);
+                              end
+                           catch
+                              error('''%s'' is not a field structure for key-value', ...
+                                 theStruct(3).subs);
                            end
                      end
                end
-               
          end % end of switch length(theStruct)
       end % end of subsref
    end
