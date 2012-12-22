@@ -21,14 +21,16 @@ classdef mymap < containers.Map
       function bool = containsValue(self,values,keys)
          % This is O(n)... 
          if nargin < 3
+            % Check values for all keys
             keys = self.keys;
          end
          vals = self.values(keys);
          for i = 1:numel(values)
-            bool(i) = any(cellfun(@(x,y) isequal(x,y),vals,repmat(values(i),size(vals))));
+            bool(i) = any(...
+               cellfun(@(x,y) isequal(x,y),vals,repmat(values(i),size(vals)))...
+               );
          end
       end
-      
    end
    
 end
