@@ -3,20 +3,38 @@
 % Requirements,
 %  R2010b, enumerations
 classdef eventDefs
-   properties
+   properties % immutable
       %
-      word
+      id
       % 
       data
    end
    methods
       function self = eventDefs(w)
-         self.word = w;
+         self.id = w;
       end
+      
       function c = array2cell(self)
          % Convert array of eventDefs to a cell array
          c = arrayfun(@(x) x,self,'UniformOutput',false);
       end
+      
+      function [self,I,J] = unique(self)
+         names = arrayfun(@(x) char(x),self,'UniformOutput',false);
+         [~,I,J] = unique(names);
+         self = self(I);
+      end
+      
+%       function c = char(self)
+%          keyboard
+%          if numel(self) > 1
+%             for i = 1:numel(self)
+%                c{i} = char(self(i));
+%             end
+%          else
+%             c = char(self);
+%          end
+%       end
    end
    enumeration
       %
@@ -33,7 +51,9 @@ classdef eventDefs
       offReward           (6)
       
       %
-      condAttend          (7)
-      condNoAttend        (8)
+      cond1               (7)
+      cond2               (8)
+      cond3               (9)
+      cond4               (10)
    end
 end
