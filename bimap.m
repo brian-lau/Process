@@ -16,8 +16,10 @@ classdef bimap < handle
    methods
       function self = bimap(varargin)
          
-         left = containers.Map(varargin{:});
-         %left = mymap(varargin{:});
+         % In case I use a different or subclassed map
+         mapKind = @containers.Map;
+         
+         left = mapKind(varargin{:});
          lKeys = left.keys;
          lVals = left.values;
          kTypes = {'char' 'double' 'single' 'int32' 'uint32' 'int64' 'uint64'};
@@ -49,8 +51,7 @@ classdef bimap < handle
             end
             
             % Create an internal mapping from id->struct, and reassign lVals
-            self.right_ = containers.Map(id,lVals);
-            %self.right_ = mymap(id,lVals);
+            self.right_ = mapKind(id,lVals);
             self.useID = true;
             lVals = id;
          else
@@ -79,8 +80,7 @@ classdef bimap < handle
                % Wierd MATLAB bug?
                rKeys = {rKeys};
             end
-            right = containers.Map(rKeys,lKeys(I));
-            %cellfun(@(x,y) fprintf('%s : %g\n',x,y),rKeys,rVals)
+            right = mapKind(rKeys,lKeys(I));
          else
             % Right keys map to multiple left keys. The right value is
             % defined as the array of left keys that map to it.
@@ -98,8 +98,7 @@ classdef bimap < handle
                   rValues{i} = cat(2,lKeys{ind});
                end
             end
-            right = containers.Map(rKeys,rValues);
-            %right = mymap(rKeys,rValues);
+            right = mapKind(rKeys,rValues);
          end
          
          self.left = left;
