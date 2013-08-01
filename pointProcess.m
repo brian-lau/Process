@@ -172,6 +172,9 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          %            the window will be DISCARDED.
          % tAbs     - Time that event times are relative
          
+         % TODO
+         % info & map should return empty maps when constructor has no args
+         
          if nargin == 0
             return;
          end
@@ -326,7 +329,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          self.window = checkWindow(window,size(window,1));
          % Reset offset, which always follows window
          self.offset = 'windowIsReset';
-         % Expensive, only call when windows are changed
+         % Expensive, only call when windows are changed (AbortSet=true)
          windowTimes(self);
       end
       
@@ -532,6 +535,8 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % and prevent overwriting existing times, perhaps with flag to
          % 1) overwrite
          % 2) add eps to make unique
+         % 3) or ignore matching times, and issue warning to call
+         % replaceTimes
          
       end
       
@@ -550,9 +555,11 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                self(i).map.remove(num2cell(self(i).times(ind)));
                self(i).times(ind) = [];
                % Reset properties that depend on event times
-               oldOffset = self(i).offset;
-               self(i).window = self(i).window;
-               self(i).offset = oldOffset;
+               %oldOffset = self(i).offset;
+               %self(i).window = self(i).window;
+               %self(i).offset = oldOffset;
+               windowTimes(self);
+               offsetTimes(self);
             end
          end
       end
@@ -577,7 +584,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       end
       
       function [bool,keys] = doesMapHaveValue(self,value,varargin)
-         % Boolean for whether MAP dictionary has value
+         % Determine whether MAP dictionary has value
          %
          % It is possible to restrict to keys by passing in additional args
          % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
@@ -703,7 +710,8 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          %     however, may still be useful. info is the same for all
          %     elements (reference), but maps will have to be concatonated
          %
-         % need to handle case where there is an offset?, 
+         % need to handle case where there is an offset?, or perhaps there
+         % should be a convention?
          if nargin == 1
             shiftToWindow = true;
          end
@@ -733,8 +741,13 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             
             %obj(i).times = self.windowedTimes{i} - shift;
             % Map is a handle, so we copy, resetting keys
+            %obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
+            %   num2cell(self.windowedTimes{i} - shift));
+            
+            % containers.Map allows vector input 
             obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
-               num2cell(self.windowedTimes{i} - shift));
+               self.windowedTimes{i} - shift);
+            
             obj(i).times = cell2mat(obj(i).map.keys);
             
             obj(i).tStart = self.window(i,1) - shift;
@@ -761,29 +774,47 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       end
       
       function addEventAsProp(self,eventEnums)
+         % This is terribly slow
+         %
+         % Another problem is that using dynamic properties, we cannot
+         % access these in a vectorized manner with object arrays
+         % http://www.mathworks.com/help/matlab/matlab_oop/creating-object-arrays.html#bsn_gnb
          if numel(self) > 1
             for i = 1:numel(self)
                addEventAsProp(self(i),eventEnums);
             end
             return;
          end
+         % can I use bimap here? I'm not sure I want to have the
+         % pointProcess map be a bimap generally, since it currently cant
+         % deal with objects...
+         %
          if ~all(mapfun(@(x)isa(x,'eventDefs'),self.map))
             error('pointProcess:addEventAsProp:InputFormat',...
                'addEventAsProp requires all map values to be eventDefs enumerations.');
-         else
-            events = cat(2,self.getMapValues{:}{:});
          end
+         b = bimap(self.map.keys,self.map.values);
          for i = 1:numel(eventEnums)
-            [bool,keys] = doesMapHaveValue(self,eventEnums(i));
-            if bool
-               keys = keys{:};
+            if b.isKeyR(eventEnums(i))
+               keys = b.valuesR(eventEnums(i));
                % add as dynamic prop
                addprop(self,char(eventEnums(i)));
-               self.(char(eventEnums(i))) = cell2mat(keys);
-               removeTimes(self,cell2mat(keys));
+               self.(char(eventEnums(i))) = keys;%cell2mat(keys);
+               removeTimes(self,keys);
             end
          end
-      end
+% NO BIMAP          
+%          for i = 1:numel(eventEnums)
+%             [bool,keys] = doesMapHaveValue(self,eventEnums(i));
+%             if bool
+%                keys = keys{:};
+%                % add as dynamic prop
+%                addprop(self,char(eventEnums(i)));
+%                self.(char(eventEnums(i))) = cell2mat(keys);
+%                removeTimes(self,cell2mat(keys));
+%             end
+%           end
+       end
       
       function h = plot(self,varargin)
 %          % Plot times & counting process
@@ -990,6 +1021,8 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
    methods(Access = private)
       function windowTimes(self)
          % Window times and set windowIndex and isValidWindow
+         % TODO
+         % Windows are inclusive on both sides, does this make sense???
          nWindow = size(self.window,1);
          times = self.times;
          window = self.window;
@@ -1043,7 +1076,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          
          % TODO, checking for cell array input?
          
-         [temp,keys] = mapfun(@(x,y) isequal(x,y),map,'params',{value},varargin{:});
+         [temp,keys] = mapfun(@(x,y) isequal(x,y),map,{value},varargin{:});
          bool = cellfun(@(x) any(x),temp);
          if nargout == 2
             for i = 1:numel(temp)
