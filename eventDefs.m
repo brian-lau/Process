@@ -16,7 +16,11 @@ classdef eventDefs
       
       function c = array2cell(self)
          % Convert array of eventDefs to a cell array
-         c = arrayfun(@(x) x,self,'UniformOutput',false);
+         c = cell(size(self));
+         for i = 1:length(self)
+            c{i} = self(i);
+         end
+         %c = arrayfun(@(x) x,self,'UniformOutput',false);
       end
       
       function [self,I,J] = unique(self)
@@ -45,7 +49,7 @@ classdef eventDefs
       trialEnd            (2)
       
       %
-      onCue               (2)
+      onCue               (3)
       offCue              (4)
       onReward            (5)
       offReward           (6)
