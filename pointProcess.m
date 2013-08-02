@@ -85,7 +85,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       
       % Information about point process. This is a dictionary keyed with
       % strings. Values can be arbitrary data types.
-      info      
+      info
    end
    
    properties(GetAccess = public, SetAccess = private)
@@ -182,7 +182,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          p = inputParser;
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcess constructor';
-         p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS:FFF'),@ischar);
+         p.addParamValue('name',datestr(now,'yyyy-mm-dd HH:MM:SS.FFF'),@ischar);
          p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
          p.addParamValue('infoKeys',[],@iscell);
          p.addParamValue('times',NaN,@isnumeric);
@@ -322,7 +322,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       
       %% Set functions
       function set.window(self,window)
-         % Set the window property (does not work for arrays of objects)
+         % Set the window property. Does not work for arrays of objects.
          %
          % SEE ALSO
          % setWindow, windowTimes
@@ -365,13 +365,13 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       end
       
       function set.offset(self,offset)
-         % Set the offset property (does not work for arrays of objects)
+         % Set the offset property. Does not work for arrays of objects.
          %
          % SEE ALSO
          % setOffset, offsetTimes
-          if strcmp(offset,'windowIsReset')
-             self.offset = zeros(size(self.window,1),1);
-          else
+         if strcmp(offset,'windowIsReset')
+            self.offset = zeros(size(self.window,1),1);
+         else
             newOffset = checkOffset(offset,size(self.window,1));
             % Reset offset, which is always follows window
             offsetTimes(self,true);
@@ -379,7 +379,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             % Only call when offsets are changed
             offsetTimes(self);
          end
-       end
+      end
       
       function setOffset(self,offset)
          % Set the offset property. Works for array object input, where
@@ -528,38 +528,130 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 %          % for an array of times
 %       end
       
-      function addTimes(self,times)
-         % Add times
-         % should handle numeric or map input
-         % should check existing times, 
-         % and prevent overwriting existing times, perhaps with flag to
+      function insertTimes(self,x)
+         % Insert times
+         % Note that this adjusts tStart and tEnd to include all times.
+         %
+         % x - either an array of event times to insert
+         %     or a containers.Map object, with keys of type 'double'
+         %     defining the event times to add
+         %
+         % SEE ALSO
+         % removeTimes
+         
+         % perhaps additional flags to?
          % 1) overwrite
-         % 2) add eps to make unique
+         % 2) add eps to make unique (Not very useful?)
          % 3) or ignore matching times, and issue warning to call
          % replaceTimes
          
+         % if times is a cell array numel == numel(self)
+         
+         for i = 1:numel(self)
+            
+            if isnumeric(x)
+               times = x;
+            elseif isa(x,'containers.Map')
+               times = cell2mat(x.keys);
+            else
+               error('pointProcess:insertTimes:InputFormat',...
+                  'times must be numeric or containers.Map');
+            end
+            
+            % Check for redundant values, ignore them
+            % if overwrite, reverse arguments to ismember
+            ind = ismember(times,self.times);
+            if any(ind)
+               fprintf('%g/%g redundant event times ignored.\n',sum(ind),length(ind));
+               times(ind) = [];
+            end
+            % Merge
+            self(i).times = sort([self(i).times,times]);
+            map = self(i).map;
+            if isnumeric(x)
+               map = [map ; containers.Map(times,cell(size(times)),...
+                  'uniformValues',false)];
+            else
+               map = [map ; x];
+            end
+            self(i).map = map;
+
+
+%             if isnumeric(x)
+%                % check format of times
+%                times = x;
+%                % check for redundant values, ignore them
+%                ind = ismember(times,self.times);
+%                if any(ind)
+%                   fprintf('%g/%g redundant event times ignored.\n',sum(ind),length(ind));
+%                   times(ind) = [];
+%                end
+%                if numel(times) > 0
+%                   self(i).times = sort([self(i).times,times]);
+%                   map = self(i).map;
+%                   map = [map ; containers.Map(times,cell(size(times)),...
+%                      'uniformValues',false)];
+%                   self(i).map = map;
+%                end
+%             elseif isa(x,'containers.Map')
+%                % Extract times
+%                times = cell2mat(x.keys);
+%                % check for redundant values, ignore them
+%                ind = ismember(times,self.times);
+%                if any(ind)
+%                   fprintf('%g/%g redundant event times ignored.\n',sum(ind),length(ind));
+%                   times(ind) = [];
+%                end
+%                if numel(times) > 0
+%                   self(i).times = sort([self(i).times,times]);
+%                   map = self(i).map;
+%                   map = [map ; x];
+%                   self(i).map = map;
+%                end
+%             else
+%                error('pointProcess:insertTimes:InputFormat',...
+%                   'times must be numeric or containers.Map');
+%             end
+            
+            if numel(times) > 0
+               % Reset properties that depend on event times
+               if min(times) < self.tStart
+                  self.tStart = min(times);
+               end
+               if max(times) > self.tEnd
+                  self.tEnd = max(times);
+               end
+               oldOffset = self(i).offset;
+               self.offset = 'windowIsReset';
+               windowTimes(self);
+               self(i).offset = oldOffset;
+            end
+         end        
       end
       
       function removeTimes(self,times)
          % Remove times and associated map keys
-         % Note that this does NOT change tStart or tEnd
+         % Note that this does NOT change tStart or tEnd.
          %
          % times - array of event times to remove
          %
          % SEE ALSO
-         % removeMapKeys
+         % insertTimes,removeMapKeys
          for i = 1:numel(self)
             ind = ismember(self(i).times,times);
             if any(ind)
                % Map is handle object
                self(i).map.remove(num2cell(self(i).times(ind)));
                self(i).times(ind) = [];
+               
                % Reset properties that depend on event times
-               %oldOffset = self(i).offset;
+               oldOffset = self(i).offset;
                %self(i).window = self(i).window;
                %self(i).offset = oldOffset;
+               self.offset = 'windowIsReset';
                windowTimes(self);
-               offsetTimes(self);
+               self(i).offset = oldOffset;
+               %offsetTimes(self);
             end
          end
       end
@@ -591,23 +683,25 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          [bool,keys] = self.doesHashmapHaveValue({self.map},value,varargin{:});
       end
       
-      function removeMapKeys(self,keys)
-         % Remove map keys and associated times
-         %
-         % SEE ALSO
-         % removeTimes
-         if iscell(keys)
-            ind = cellfun(@(x) ~isnumeric(x),keys);
-            if any(ind)
-               fprintf('%g non-numeric keys ignored.',sum(ind));
-            end
-            keys = cell2mat(keys(~ind));
-         else
-            error('pointProcess:removeMapKeys:InputFormat',...
-               'keys must be numeric or cell array');
-         end
-         removeTimes(self,keys);
-      end
+% Not sure this is ever useful??, map and times are always linked. Just use
+% removeTimes instead?
+%       function removeMapKeys(self,keys)
+%          % Remove map keys and associated times
+%          %
+%          % SEE ALSO
+%          % removeTimes
+%          if iscell(keys)
+%             ind = cellfun(@(x) ~isnumeric(x),keys);
+%             if any(ind)
+%                fprintf('%g non-numeric keys ignored.',sum(ind));
+%             end
+%             keys = cell2mat(keys(~ind));
+%          else
+%             error('pointProcess:removeMapKeys:InputFormat',...
+%                'keys must be numeric or cell array');
+%          end
+%          removeTimes(self,keys);
+%       end
       
       function array = infoFun(self,fun,varargin)
          % TODO array input
@@ -773,48 +867,56 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % add offset_ back to map
       end
       
-      function addEventAsProp(self,eventEnums)
-         % This is terribly slow
-         %
-         % Another problem is that using dynamic properties, we cannot
-         % access these in a vectorized manner with object arrays
-         % http://www.mathworks.com/help/matlab/matlab_oop/creating-object-arrays.html#bsn_gnb
-         if numel(self) > 1
-            for i = 1:numel(self)
-               addEventAsProp(self(i),eventEnums);
-            end
-            return;
-         end
-         % can I use bimap here? I'm not sure I want to have the
-         % pointProcess map be a bimap generally, since it currently cant
-         % deal with objects...
-         %
-         if ~all(mapfun(@(x)isa(x,'eventDefs'),self.map))
-            error('pointProcess:addEventAsProp:InputFormat',...
-               'addEventAsProp requires all map values to be eventDefs enumerations.');
-         end
-         b = bimap(self.map.keys,self.map.values);
-         for i = 1:numel(eventEnums)
-            if b.isKeyR(eventEnums(i))
-               keys = b.valuesR(eventEnums(i));
-               % add as dynamic prop
-               addprop(self,char(eventEnums(i)));
-               self.(char(eventEnums(i))) = keys;%cell2mat(keys);
-               removeTimes(self,keys);
-            end
-         end
-% NO BIMAP          
+% % I think this is a bad hack. Can't concatonate these properties easily,
+% % and it's too slow. A better way to access events is to search the map
+% % values
+%       function addEventAsProp(self,eventEnums)
+%          % This is terribly slow
+%          %
+%          % Another problem is that using dynamic properties, we cannot
+%          % access these in a vectorized manner with object arrays
+%          % http://www.mathworks.com/help/matlab/matlab_oop/creating-object-arrays.html#bsn_gnb
+%          %
+%          % One trick is to subclass hgsetget, then we can use
+%          % get(pointProcess,'dynprop'), which returns a cell array of the
+%          % properties
+%          % However, the property needs to exist for each array element!
+%          if numel(self) > 1
+%             for i = 1:numel(self)
+%                addEventAsProp(self(i),eventEnums);
+%             end
+%             return;
+%          end
+%          % can I use bimap here? I'm not sure I want to have the
+%          % pointProcess map be a bimap generally, since it currently cant
+%          % deal with objects...
+%          %
+%          if ~all(mapfun(@(x)isa(x,'eventDefs'),self.map))
+%             error('pointProcess:addEventAsProp:InputFormat',...
+%                'addEventAsProp requires all map values to be eventDefs enumerations.');
+%          end
+%          b = bimap(self.map.keys,self.map.values);
 %          for i = 1:numel(eventEnums)
-%             [bool,keys] = doesMapHaveValue(self,eventEnums(i));
-%             if bool
-%                keys = keys{:};
+%             if b.isKeyR(eventEnums(i))
+%                keys = b.valuesR(eventEnums(i));
 %                % add as dynamic prop
 %                addprop(self,char(eventEnums(i)));
-%                self.(char(eventEnums(i))) = cell2mat(keys);
-%                removeTimes(self,cell2mat(keys));
+%                self.(char(eventEnums(i))) = keys;%cell2mat(keys);
+%                removeTimes(self,keys);
 %             end
-%           end
-       end
+%          end
+% % NO BIMAP          
+% %          for i = 1:numel(eventEnums)
+% %             [bool,keys] = doesMapHaveValue(self,eventEnums(i));
+% %             if bool
+% %                keys = keys{:};
+% %                % add as dynamic prop
+% %                addprop(self,char(eventEnums(i)));
+% %                self.(char(eventEnums(i))) = cell2mat(keys);
+% %                removeTimes(self,cell2mat(keys));
+% %             end
+% %           end
+%        end
       
       function h = plot(self,varargin)
 %          % Plot times & counting process
@@ -913,10 +1015,15 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       %% Operators
       function plus(x,y)
          % Overloaded addition (plus, +)
+         % When one of (x,y) is a pointProcess, and the other a scalar, +
+         % will change the offset according to the scalar.
+         % When x & y are both pointProcesses, they will be merged
          if isa(x,'pointProcess') && isa(y,'pointProcess')
             % not done yet
             % should merge the objects
             % order will matter, how to deal with names & info?
+            % since x,y will be handles, we need to destroy one, and
+            % reassignin to the leading variable?
          elseif isa(x,'pointProcess') && isnumeric(y)
             if numel(x) > 1
                [x.offset] = deal(list(y));
@@ -1062,10 +1169,10 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
    
    methods(Static, Access = private)
       function [bool,keys] = doesHashmapHaveValue(map,value,varargin)
-         % Boolean for whether dictionary contains value
+         % Check whether dictionary contains value
          %
          % OUTPUT
-         % bool - boolean indicating whethe value exists in map
+         % bool - boolean indicating whether value exists in map
          % keys - corresponding cell array of keys for which bool is true
          %
          % It is possible to restrict to keys by passing in additional args
