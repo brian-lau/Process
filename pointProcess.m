@@ -640,32 +640,11 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          [bool,keys] = self.doesHashmapHaveValue({self.map},value,varargin{:});
       end
       
-% Not sure this is ever useful??, map and times are always linked. Just use
-% removeTimes instead?
-%       function removeMapKeys(self,keys)
-%          % Remove map keys and associated times
-%          %
-%          % SEE ALSO
-%          % removeTimes
-%          if iscell(keys)
-%             ind = cellfun(@(x) ~isnumeric(x),keys);
-%             if any(ind)
-%                fprintf('%g non-numeric keys ignored.',sum(ind));
-%             end
-%             keys = cell2mat(keys(~ind));
-%          else
-%             error('pointProcess:removeMapKeys:InputFormat',...
-%                'keys must be numeric or cell array');
-%          end
-%          removeTimes(self,keys);
+%       function values = getMapValues(self)
+%          % Return all map values
+%          values = deCell(arrayfun(@(x) x.map.values,self,'uni',false));
 %       end
-%       
-%       function array = infoFun(self,fun,varargin)
-%          % TODO array input
-%          % array = mapfun(fun,{self.map},varargin{:});
-%          array = mapfun(fun,self.info,varargin{:});
-%       end
-      
+           
       function array = getInfoKeys(self,flatBool)
          % Return array of keys in INFO dictionary
          %
@@ -697,19 +676,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % It is possible to restrict to keys by passing in additional args
          % self.doesInfoHaveValue(value,'keys',{cell array of keys})
          bool = self.doesHashmapHaveValue({self.info},value,varargin{:});
-      end
-      
-%       function values = getMapValues(self)
-%          % Return all map values
-%          values = deCell(arrayfun(@(x) x.map.values,self,'uni',false));
-%       end
-%       function self = selectByMarks(self,value)
-%          % search for marks containing value(s) [union]
-%          % deleteMarks
-%          % will return pointProcess with events that contain mark value
-%          % eg, search for trial boundaries
-%       end
-   
+      end   
 
       function bool = inWindow()
          % function to determine if some property is in a window?
