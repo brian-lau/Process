@@ -497,7 +497,9 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 % how about the one for getPsth and plotRaster
             
       function reset(self)
-         % Reset times and windows to state when object was created         
+         % Reset times and windows to state when object was created
+         % Note that this only reapplies the original window and offet
+         % properties.
          for i = 1:numel(self)
             self(i).window = self(i).window_;
             self(i).offset = self(i).offset_;
@@ -790,58 +792,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % Should we just mush all the info together?
          % add offset_ back to map
       end
-      
-% % I think this is a bad hack. Can't concatonate these properties easily,
-% % and it's too slow. A better way to access events is to search the map
-% % values
-%       function addEventAsProp(self,eventEnums)
-%          % This is terribly slow
-%          %
-%          % Another problem is that using dynamic properties, we cannot
-%          % access these in a vectorized manner with object arrays
-%          % http://www.mathworks.com/help/matlab/matlab_oop/creating-object-arrays.html#bsn_gnb
-%          %
-%          % One trick is to subclass hgsetget, then we can use
-%          % get(pointProcess,'dynprop'), which returns a cell array of the
-%          % properties
-%          % However, the property needs to exist for each array element!
-%          if numel(self) > 1
-%             for i = 1:numel(self)
-%                addEventAsProp(self(i),eventEnums);
-%             end
-%             return;
-%          end
-%          % can I use bimap here? I'm not sure I want to have the
-%          % pointProcess map be a bimap generally, since it currently cant
-%          % deal with objects...
-%          %
-%          if ~all(mapfun(@(x)isa(x,'eventDefs'),self.map))
-%             error('pointProcess:addEventAsProp:InputFormat',...
-%                'addEventAsProp requires all map values to be eventDefs enumerations.');
-%          end
-%          b = bimap(self.map.keys,self.map.values);
-%          for i = 1:numel(eventEnums)
-%             if b.isKeyR(eventEnums(i))
-%                keys = b.valuesR(eventEnums(i));
-%                % add as dynamic prop
-%                addprop(self,char(eventEnums(i)));
-%                self.(char(eventEnums(i))) = keys;%cell2mat(keys);
-%                removeTimes(self,keys);
-%             end
-%          end
-% % NO BIMAP          
-% %          for i = 1:numel(eventEnums)
-% %             [bool,keys] = doesMapHaveValue(self,eventEnums(i));
-% %             if bool
-% %                keys = keys{:};
-% %                % add as dynamic prop
-% %                addprop(self,char(eventEnums(i)));
-% %                self.(char(eventEnums(i))) = cell2mat(keys);
-% %                removeTimes(self,cell2mat(keys));
-% %             end
-% %           end
-%        end
-      
+            
       function h = plot(self,varargin)
 %          % Plot times & counting process
 %          % TODO 
