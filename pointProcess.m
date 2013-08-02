@@ -559,7 +559,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             end
             
             % Check for redundant values, ignore them
-            % if overwrite, reverse arguments to ismember
             ind = ismember(times,self.times);
             if any(ind)
                fprintf('%g/%g redundant event times ignored.\n',sum(ind),length(ind));
@@ -575,43 +574,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                map = [map ; x];
             end
             self(i).map = map;
-
-
-%             if isnumeric(x)
-%                % check format of times
-%                times = x;
-%                % check for redundant values, ignore them
-%                ind = ismember(times,self.times);
-%                if any(ind)
-%                   fprintf('%g/%g redundant event times ignored.\n',sum(ind),length(ind));
-%                   times(ind) = [];
-%                end
-%                if numel(times) > 0
-%                   self(i).times = sort([self(i).times,times]);
-%                   map = self(i).map;
-%                   map = [map ; containers.Map(times,cell(size(times)),...
-%                      'uniformValues',false)];
-%                   self(i).map = map;
-%                end
-%             elseif isa(x,'containers.Map')
-%                % Extract times
-%                times = cell2mat(x.keys);
-%                % check for redundant values, ignore them
-%                ind = ismember(times,self.times);
-%                if any(ind)
-%                   fprintf('%g/%g redundant event times ignored.\n',sum(ind),length(ind));
-%                   times(ind) = [];
-%                end
-%                if numel(times) > 0
-%                   self(i).times = sort([self(i).times,times]);
-%                   map = self(i).map;
-%                   map = [map ; x];
-%                   self(i).map = map;
-%                end
-%             else
-%                error('pointProcess:insertTimes:InputFormat',...
-%                   'times must be numeric or containers.Map');
-%             end
             
             if numel(times) > 0
                % Reset properties that depend on event times
@@ -646,12 +608,9 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                
                % Reset properties that depend on event times
                oldOffset = self(i).offset;
-               %self(i).window = self(i).window;
-               %self(i).offset = oldOffset;
                self.offset = 'windowIsReset';
                windowTimes(self);
                self(i).offset = oldOffset;
-               %offsetTimes(self);
             end
          end
       end
