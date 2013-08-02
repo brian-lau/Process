@@ -541,9 +541,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          
          % perhaps additional flags to?
          % 1) overwrite
-         % 2) add eps to make unique (Not very useful?)
-         % 3) or ignore matching times, and issue warning to call
-         % replaceTimes
+         % What if there is already an offset?
          
          % if times is a cell array numel == numel(self)
          
@@ -598,7 +596,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % times - array of event times to remove
          %
          % SEE ALSO
-         % insertTimes,removeMapKeys
+         % insertTimes
          for i = 1:numel(self)
             ind = ismember(self(i).times,times);
             if any(ind)
@@ -661,12 +659,12 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 %          end
 %          removeTimes(self,keys);
 %       end
-      
-      function array = infoFun(self,fun,varargin)
-         % TODO array input
-         % array = mapfun(fun,{self.map},varargin{:});
-         array = mapfun(fun,self.info,varargin{:});
-      end
+%       
+%       function array = infoFun(self,fun,varargin)
+%          % TODO array input
+%          % array = mapfun(fun,{self.map},varargin{:});
+%          array = mapfun(fun,self.info,varargin{:});
+%       end
       
       function array = getInfoKeys(self,flatBool)
          % Return array of keys in INFO dictionary
