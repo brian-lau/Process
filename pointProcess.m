@@ -137,6 +137,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       % of the windows property
       windowedTimes
       
+      % Cell array of associated values in window(s)
       windowedValues
       
       % Cell array of indices into event times for times contained in window
@@ -159,7 +160,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
    
    properties(GetAccess = public, SetAccess = private)
       % Classdef version for loadobj & saveobj
-      version = 0.1;
+      version = 0.2;
    end
    
    methods
@@ -167,11 +168,11 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       %% Constructor
       function self = pointProcess(varargin)
          % Constructor, arguments are taken as name/value pairs
-         % name     - string identifier
-         % info     - cell array of information about process
-         % infoKeys - cell array of strings labelling info elements
+         % name     - String identifier
+         % info     - Information about point process
+         %            containers.Map
+         %            cell array, converted to map with generic keys
          % times    - Vector of event times
-%         % map      - Corresponding vector of magnitudes for "marked" process
          % values   - Data corresponding to each event time
          % window   - Defaults to window that includes all event times,
          %            If a smaller window is passed in, event times outside
@@ -180,6 +181,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          
          % TODO
          % info & map should return empty maps when constructor has no args
+         % name should be inside info!
          
          if nargin == 0
             return;
@@ -192,7 +194,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
          p.addParamValue('infoKeys',[],@iscell);
          p.addParamValue('times',NaN,@isnumeric);
-%         p.addParamValue('map',[],@(x) isnumeric(x) || iscell(x) || isa(x,'containers.Map'));
          p.addParamValue('values',[],@(x) isvector(x) || iscell(x));
          p.addParamValue('window',[],@isnumeric);
          p.addParamValue('offset',[],@isnumeric);
@@ -253,36 +254,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 %                'Map is not a containers.Map, you need to pass in valid times.');
          end
 
-         
-%          if any(strcmp(varargin,'times')) && isa(p.Results.map,'containers.Map')
-%             error('pointProcess:Constructor:InputCount',...
-%                'Map is a dictionary, it''s keys are assumed to be pointProcess times.');
-%          elseif isa(p.Results.map,'containers.Map')
-%             % We have a map, assume the keys are our times
-%             map = p.Results.map;
-%             if strcmp(map.KeyType,'double')
-%                eventTimes = cell2mat(map.keys);
-%                eventMap = map;
-%             else
-%                error('pointProcess:Constructor:InputFormat',...
-%                   'If map is a dictionary, it''s keys are assumed to be doubles.');
-%             end
-%          elseif ~isempty(p.Results.times) && ~any(isnan(p.Results.times))
-%             % We have a simple array of times, sort and apply to map
-%             [eventTimes,tInd] = unique(p.Results.times(:)');
-%             if isempty(p.Results.map)
-%                eventMap = [];
-%             else
-%                % Not a containers.Map
-%                eventMap = p.Results.map(tInd);
-%             end
-%          else
-%             % No event times
-%             return;
-% %             error('pointProcess:Constructor:InputCount',...
-% %                'Map is not a containers.Map, you need to pass in valid times.');
-%          end
-         
+                  
          %% If we have event times
          
          % Define the start and end times of the process
@@ -307,37 +279,8 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          else
             self.times = eventTimes(ind);
             self.values = values(ind);
-%             if isa(eventMap,'containers.Map')
-%                % Remove keys that are not in times
-%                keys = eventMap.keys;
-%                ind = ~ismember(cell2mat(keys),self.times);
-%                if sum(ind) > 0
-%                   eventMap.remove(keys(ind));
-%                end
-%             elseif ~isempty(eventMap)
-%                eventMap = eventMap(ind);
-%             end
          end
-         
-%          % Create the map dictionary if we have times left
-%          if isempty(eventMap)
-%             % Set a default map, with event times as keys
-%             self.map = containers.Map(self.times,cell(size(self.times)),...
-%                'uniformValues',false);
-%          else
-%             if iscell(eventMap)
-%                self.map = containers.Map(self.times,eventMap,...
-%                   'uniformValues',false);
-%             elseif isa(eventMap,'containers.Map')
-%                self.map = eventMap;
-%             elseif isvector(eventMap)
-%                self.map = containers.Map(self.times,num2cell(eventMap),...
-%                   'uniformValues',false);
-%             else
-%                error('Should not get here');
-%             end
-%          end
-                  
+                           
          % Set the window
          if isempty(p.Results.window)
             self.window = [min(self.times) max(self.times)];
@@ -643,8 +586,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          for i = 1:numel(self)
             ind = ismember(self(i).times,times);
             if any(ind)
-%                % Map is handle object
-%                self(i).map.remove(num2cell(self(i).times(ind)));
                self(i).times(ind) = [];
                self(i).values(ind) = [];
                
@@ -801,17 +742,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                shift = 0;
             end
             
-%             %obj(i).times = self.windowedTimes{i} - shift;
-%             % Map is a handle, so we copy, resetting keys
-%             %obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
-%             %   num2cell(self.windowedTimes{i} - shift));
-%             
-%             % containers.Map allows vector input 
-%             obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
-%                self.windowedTimes{i} - shift);
-            
-%            obj(i).times = cell2mat(obj(i).map.keys);
-            %keyboard
             obj(i).times = self.windowedTimes{i} - shift;
             obj(i).values = self.values(self.windowIndex{i});
 
