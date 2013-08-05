@@ -565,6 +565,10 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 %          % Should do the above, and make the selectByTimes actually search
 %          % for an array of times
 %       end
+
+      function values = getWindowedValues(self)
+         values = self.values(self.windowIndex);
+      end
       
       function insertTimes(self,x,y)
          % Insert times
@@ -586,8 +590,6 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          for i = 1:numel(self)
             if isnumeric(x)
                times = x;
-%             elseif isa(x,'containers.Map')
-%                times = cell2mat(x.keys);
              else
                error('pointProcess:insertTimes:InputFormat',...
                   'times must be numeric or containers.Map');
@@ -601,21 +603,12 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             end
             % Merge
             [self(i).times,I] = sort([self(i).times,times]);
-%            map = self(i).map;
-%            if isnumeric(x)
-%                map = [map ; containers.Map(times,cell(size(times)),...
-%                   'uniformValues',false)];
-               
-               if nargin == 3
+            if nargin == 3
                temp = [self(i).values,y];
-               else
+            else
                temp = [self(i).values,cell(size(times))];
-               end
-               self(i).values = temp(I);
-%             else
-%                map = [map ; x];
-%            end
-%            self(i).map = map;
+            end
+            self(i).values = temp(I);
             
             if numel(times) > 0
                % Reset properties that depend on event times
@@ -802,17 +795,20 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
                shift = 0;
             end
             
-            %obj(i).times = self.windowedTimes{i} - shift;
-            % Map is a handle, so we copy, resetting keys
-            %obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
-            %   num2cell(self.windowedTimes{i} - shift));
+%             %obj(i).times = self.windowedTimes{i} - shift;
+%             % Map is a handle, so we copy, resetting keys
+%             %obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
+%             %   num2cell(self.windowedTimes{i} - shift));
+%             
+%             % containers.Map allows vector input 
+%             obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
+%                self.windowedTimes{i} - shift);
             
-            % containers.Map allows vector input 
-            obj(i).map = copyMap(self.map,num2cell(self.windowedTimes{i}),...
-               self.windowedTimes{i} - shift);
-            
-            obj(i).times = cell2mat(obj(i).map.keys);
-            
+%            obj(i).times = cell2mat(obj(i).map.keys);
+            %keyboard
+            obj(i).times = self.windowedTimes{i} - shift;
+            obj(i).values = self.values(self.windowIndex{i});
+
             obj(i).tStart = self.window(i,1) - shift;
             obj(i).tEnd = self.window(i,2) - shift;
             obj(i).window = self.window(i,:) - shift;
