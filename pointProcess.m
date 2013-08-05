@@ -137,6 +137,8 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       % of the windows property
       windowedTimes
       
+      windowedValues
+      
       % Cell array of indices into event times for times contained in window
       windowIndex
       
@@ -362,6 +364,10 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          %
          % SEE ALSO
          % setWindow, windowTimes
+         %
+         % TODO
+         % Check window size, and branch to setWindow if more than 1
+         % doesn't work, set never gets here
          self.window = checkWindow(window,size(window,1));
          % Reset offset, which always follows window
          self.offset = 'windowIsReset';
@@ -566,9 +572,9 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 %          % for an array of times
 %       end
 
-      function values = getWindowedValues(self)
-         values = self.values(self.windowIndex);
-      end
+%       function values = getWindowedValues(self)
+%          values = self.values(self.windowIndex);
+%       end
       
       function insertTimes(self,x,y)
          % Insert times
@@ -1046,13 +1052,16 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          % Windows are inclusive on both sides, does this make sense???
          nWindow = size(self.window,1);
          times = self.times;
+         values = self.values;
          window = self.window;
          windowedTimes = cell(nWindow,1);
+         windowedValues = cell(nWindow,1);
          windowIndex = cell(nWindow,1);
          isValidWindow = false(nWindow,1);
          for i = 1:nWindow
             ind = (times>=window(i,1)) & (times<=window(i,2));
             windowedTimes{i,1} = times(ind);
+            windowedValues{i,1} = values(ind);
             windowIndex{i,1} = find(ind);
             if (window(i,1)>=self.tStart) && (window(i,2)<=self.tEnd)
                isValidWindow(i) = true;
@@ -1061,6 +1070,7 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
             end
          end
          self.windowedTimes = windowedTimes;
+         self.windowedValues = windowedValues;
          self.windowIndex = windowIndex;
          self.isValidWindow = isValidWindow;
       end
