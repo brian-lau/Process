@@ -250,13 +250,10 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          else
             % No event times
             return;
-%             error('pointProcess:Constructor:InputCount',...
-%                'Map is not a containers.Map, you need to pass in valid times.');
          end
 
                   
          %% If we have event times
-         
          % Define the start and end times of the process
          if isempty(p.Results.tStart)
             self.tStart = min([min(eventTimes) 0]);
@@ -598,6 +595,33 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
          end
       end
       
+      function output = valueFun(self,fun,args,varargin)
+      %keyboard
+         % trap and remove parameters not specific to cellfun
+         % args
+         % recurse
+         nWindow = size(self.window,1);
+         
+         for i = 1:nWindow
+            output{i,1} = cellfun(fun,self.windowedValues{i});
+            %times{i,1} = self.windowedTimes{i}(bool{i,1});
+         end
+      end
+      
+      function [bool,times] = hasValue(self,value)
+%          nWindow = size(self.window,1);
+%          for i = 1:nWindow
+%             bool(i,1) = valueFun(self,@(x) x==value);
+%             times{i,1} = self.windowedTimes{i}(bool{i,1});
+%          end
+         bool = valueFun(self,@(x) x==value);
+         
+         nWindow = size(self.window,1);
+         for i = 1:nWindow
+            times{i,1} = self.windowedTimes{i}(bool{i,1});
+         end
+      end
+      
 %       function array = mapFun(self,fun,varargin)
 %          % TODO array input
 %          % TODO, how to respect window?
@@ -629,6 +653,8 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
 %          % Return all map values
 %          values = deCell(arrayfun(@(x) x.map.values,self,'uni',false));
 %       end
+
+
            
       function array = getInfoKeys(self,flatBool)
          % Return array of keys in INFO dictionary
@@ -763,6 +789,8 @@ classdef (CaseInsensitiveProperties = true) pointProcess < dynamicprops & hgsetg
       
       function merge(self)
          % method to merge chopped pointProcess
+         % This is probably a useless method. Also ambiguous, since we can
+         % create windows with non-unique times.
          % What if there is a pointProcess array, but it wasn't chopped?
          % Should we just mush all the info together?
          % add offset_ back to map
