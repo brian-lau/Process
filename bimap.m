@@ -2,6 +2,9 @@
 % https://google-collections.googlecode.com/svn/trunk/javadoc/com/google/common/collect/BiMap.html
 % https://svn.mpl.ird.fr/us191/oceano/trunk/matlab/us191/+us191/@Map/Map.m
 
+% TODO
+% handle empty inputs
+
 classdef bimap < handle
    properties
       left
@@ -16,7 +19,7 @@ classdef bimap < handle
    methods
       function self = bimap(varargin)
          
-         % In case I use a different or subclassed map
+         % In case we use a different or subclassed map
          mapKind = @containers.Map;
          
          left = mapKind(varargin{:});
@@ -66,7 +69,7 @@ classdef bimap < handle
          %% Build right map
          % The left value type is compatible with being a right key
          if ismember(left.ValueType,vTypesToCast)
-            % TODO cast to double
+            % TODO cast to double?
          end
          
          if strcmp(left.ValueType,'char')
@@ -103,7 +106,6 @@ classdef bimap < handle
          
          self.left = left;
          self.right = right;
-
       end % constructor
 
 %       % put method, call containers.Map
@@ -207,6 +209,7 @@ classdef bimap < handle
       end
       
       function bool = isKeyR_slow(self,values)
+         % Boolean indicating whether right keys exist
          % Purely for testing since this is O(n)... 
          %
          % Check values for all left keys
@@ -233,24 +236,35 @@ classdef bimap < handle
             
       function remove(self,varargin)
          % Remove left key/value pair (right map updated correspondingly)
-         
+         %
+         % SEE ALSO
+         % removeR
          lKey = varargin{:};
          % Find the left value (right key)
          rKey = get(self,lKey);
-         
-         % The left key (right value) to delete will be in this right value
-         rVal = getR(self,rKey);
+         keyboard
          % Remove the desired left key, and make a new right value
-         if isnumeric(rVal)
-            ind = rVal == lKey;
-         else
+         if strcmp(self.left.KeyType,'char')%isnumeric(rVal)
+            % Remove string rather than chars of the string
+            if iscell(rKey)
+               rVal = getR(self,rKey);
+            else
+               rVal = getR(self,{rKey});
+            end
             ind = strcmp(lKey,rVal);
+            rValNew = rVal;
+            rValNew(ind) = [];
+         else
+            % The left key (right value) to delete will be in this right value
+            rVal = getR(self,rKey);
+            ind = rVal == lKey;
+            rValNew = rVal;
+            rValNew(ind) = [];
          end
-         rValNew = rVal;
-         rValNew(ind) = [];
          
          % Remove the left key/value pair
          remove(self.left,lKey);
+         
          % Reassign the right key/value pair
          if self.useID
             self.right(rKey.id) = rValNew;
@@ -330,7 +344,7 @@ classdef bimap < handle
                end
             case 2
                switch S(1).type
-                  % m.ARG1(ARG2)
+                  % map.ARG1(ARG2)
                   case '.'
                      key = S(2).subs{:};
                      switch S(1).subs
@@ -355,7 +369,7 @@ classdef bimap < handle
                      end
                   case '()'
                      % Access a field of left map value
-                     % m(ARG1).ARG2
+                     % map(ARG1).ARG2
                      result = get(self,S(1).subs{:});
                      switch S(2).type
                         case '.'
