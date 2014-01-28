@@ -3,14 +3,14 @@
 % time = rows
 
 classdef(CaseInsensitiveProperties = true) sampledProcess < process   
-   properties(GetAccess = public, SetAccess = private)
+   properties(SetAccess = private)
       Fs % Sampling frequency
    end
-   properties(GetAccess = public, SetAccess = private, Dependent = true, Transient = true)
+   properties(SetAccess = private, Dependent = true, Transient = true)
       dim
       dt
    end   
-   properties(GetAccess = public, SetAccess = protected, Hidden = true)
+   properties(SetAccess = protected, Hidden = true)
       Fs_ % Original sampling frequency
    end
    
@@ -19,17 +19,26 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
       %% Constructor
       function self = sampledProcess(varargin)
          self = self@process;
-         %if nargin == 0
-         %   return;
-         %end
+         if nargin == 0
+           return;
+         end
          
+         if nargin == 1
+            values = varargin{1};
+            assert(isnumeric(values),...
+               'sampledProcess:Constructor:InputFormat',...
+               'Single inputs must be passed in as array of values');
+            if isnumeric(values)
+               varargin{1} = 'values';
+               varargin{2} = values;
+            end
+         end
+
          p = inputParser;
          p.KeepUnmatched= false;
          p.FunctionName = 'sampledProcess constructor';
-         p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
-         p.addParamValue('infoKeys',[],@iscell);
+         p.addParamValue('info',containers.Map('KeyType','char','ValueType','any'));
          p.addParamValue('Fs',1);
-         %p.addParamValue('times',[],@ismatrix );
          p.addParamValue('values',[],@ismatrix );
          p.addParamValue('window',[],@isnumeric);
          p.addParamValue('offset',[],@isnumeric);
@@ -37,35 +46,7 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
          p.addParamValue('tEnd',[],@isnumeric);
          p.parse(varargin{:});
          
-         % Create the info dictionary
-         if isempty(p.Results.info)
-            self.info = containers.Map('KeyType','char','ValueType','any');
-         elseif isa(p.Results.info,'containers.Map')
-            % Passing in a map, ignore infoKeys
-            if ~strcmp(p.Results.info.KeyType,'char')
-               error('pointProcess:Constructor:InputFormat',...
-                  'info keys must be chars.');
-            else
-               self.info = p.Results.info;
-            end
-         else
-            if isempty(p.Results.infoKeys)
-               for i = 1:length(p.Results.info)
-                  infoKeys{i,1} = ['key' num2str(i)];
-               end
-            else
-               if any(~cellfun(@ischar,p.Results.infoKeys))
-                  error('pointProcess:Constructor:InputFormat',...
-                     'info keys must be chars.');
-               end
-               if numel(p.Results.infoKeys) ~= numel(p.Results.info)
-                  error('pointProcess:Constructor:InputFormat',...
-                     'Number of info keys must match numel(info).');
-               end
-               infoKeys = p.Results.infoKeys;
-            end
-            self.info = containers.Map(infoKeys,p.Results.info,'uniformValues',false);
-         end
+         self.info = p.Results.info;
          
          self.tStart = p.Results.tStart;
          

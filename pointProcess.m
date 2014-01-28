@@ -1,61 +1,6 @@
-% simulation
-% analyses
-% x intensity (basic)
-%  isi, 
-%      cv, cv2, lvr
-% conditional mean
-% hazard
-% time conversion between units
-%
-% any way to ensure column or row outputs when someone creates matrices of
-% pointProcesses?
-% As many of the methods as possible for pointProcess will handle array
-% calls. Since there isn't clearly a way to enforce how users create these
-% arrays (ie, they can be multidimensional), we should enforce some sanity
-% in the methods?
-%   - for nDims> 2, always concatonate in a consistent way? issue warning
-%   - for nDimes = 1, should handle row and column differently, ie,
-%     getTimes should return a row if row inputs, and a column if column
-%     inputs
-%   THIS is done for getTimes now, need to check ALL METHODS
-%
-% How to ensure we can always load the data? How to save? as struct and use
-% savObj and loadObj methods
-%  Do I need to suppport construction from a struct?
-%http://www.mathworks.com/help/matlab/matlab_oop/example--maintaining-class-compatibility.html
-%http://www.mathworks.com/help/matlab/matlab_oop/passing-arguments-to-constructors-during-load.html
-%http://www.mathworks.com/matlabcentral/newsreader/view_thread/261903
-%http://www.cs.ubc.ca/~murphyk/Software/matlabObjects.html
-%http://www.mathworks.com/support/solutions/en/data/1-BU9EU7/index.html?product=M
-%http://fluffynukeit.com/tag/saveobj/
-%http://www.mathworks.com/matlabcentral/fileexchange/34564-fast-serializedeserialize
-%https://groups.google.com/forum/?fromgroups=#!topic/comp.soft-sys.matlab/-m6graaO5Ig
-%http://stackoverflow.com/questions/3161649/loading-saved-objects-from-disk-is-slow-in-matlab
-%http://www.mathworks.com/matlabcentral/answers/8056
-%http://kabamaru.blogspot.fr/2012/06/saving-and-loading-functionality-to-gml.html
-%   started by including version property
-%
-% OBJECT ARRAYS
-% standard getters seems to sequentially call their method on
-% each element of the object array
-% calling a standard setters raises an error
-%   spk2.offset = 1
-%   But it turns out you can use deal, which iterates over each element
-%   [spk2.offset] = deal(1,10) % different for each element
-%   t = num2cell([1 10]);
-%   [spk2.offset] = deal(x{:}) % same as above
-%   [spk2.offset] = deal(13) % same for each element
-%  
-% calling other methods just passes in the entire object array...
-% which means that all other methods must handle object arrays
-%
-% Overload other operators? 
-% / or ./ to chop, 
-% < > <= >= could be used to restrict eventTimes (set window)?
-%
 classdef(CaseInsensitiveProperties = true) pointProcess < process         
    % These dependent properties all apply the window property
-   properties(GetAccess = public, SetAccess = private, Dependent = true, Transient = true)
+   properties(SetAccess = private, Dependent = true, Transient = true)
       % # of events within window
       count
    end
@@ -91,7 +36,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
             else
                assert(all(cellfun(@isnumeric,times)),...
                   'pointProcess:Constructor:InputFormat',...
-                  ['Each element of cell array must be a numeric array.']);
+                  'Each element of cell array must be a numeric array.');
                varargin{1} = 'times';
                varargin{2} = times;
             end
@@ -100,8 +45,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          p = inputParser;
          p.KeepUnmatched= false;
          p.FunctionName = 'pointProcess constructor';
-         p.addParamValue('info',[],@(x) (iscell(x) || isa(x,'containers.Map')) );
-         p.addParamValue('infoKeys',[],@iscell);
+         p.addParamValue('info',containers.Map('KeyType','char','ValueType','any'));
          p.addParamValue('times',{},@(x) isnumeric(x) || iscell(x));
          p.addParamValue('values',{},@(x) isvector(x) || iscell(x) );
          p.addParamValue('labels',{});
@@ -111,35 +55,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          p.addParamValue('tEnd',[],@isnumeric);
          p.parse(varargin{:});
          
-         % Create the info dictionary
-         if isempty(p.Results.info)
-            self.info = containers.Map('KeyType','char','ValueType','any');
-         elseif isa(p.Results.info,'containers.Map')
-            % Passing in a map, ignore infoKeys
-            if ~strcmp(p.Results.info.KeyType,'char')
-               error('pointProcess:Constructor:InputFormat',...
-                  'info keys must be chars.');
-            else
-               self.info = p.Results.info;
-            end
-         else
-            if isempty(p.Results.infoKeys)
-               for i = 1:length(p.Results.info)
-                  infoKeys{i,1} = ['key' num2str(i)];
-               end
-            else
-               if any(~cellfun(@ischar,p.Results.infoKeys))
-                  error('pointProcess:Constructor:InputFormat',...
-                     'info keys must be chars.');
-               end
-               if numel(p.Results.infoKeys) ~= numel(p.Results.info)
-                  error('pointProcess:Constructor:InputFormat',...
-                     'Number of info keys must match numel(info).');
-               end
-               infoKeys = p.Results.infoKeys;
-            end
-            self.info = containers.Map(infoKeys,p.Results.info,'uniformValues',false);
-         end
+         self.info = p.Results.info;
          
          % Create the values cell array
          if ~isempty(p.Results.times) %&& ~any(isnan(p.Results.times))

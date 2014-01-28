@@ -11,23 +11,19 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
       verbose
       userData
    end
-   
    properties(SetAccess = protected)
       timeUnit % Time representation (placeholder)
       clock % Clock info (drift-correction)
    end
-
    properties(AbortSet)
       tStart % Start time of process
       tEnd   % End time of process
       window % [min max] time window of interest
       offset % Offset of event/sample times relative to window
    end
-   
    properties
       labels
    end
-   
    % Window-dependent, but only calculated on window change
    % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
    properties(SetAccess = protected, Transient = true)
@@ -42,7 +38,6 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
       % Boolean if window(s) lies within tStart and tEnd
       isValidWindow
    end
-            
    properties(SetAccess = protected, Hidden = true)
       index % Indices into times/values in window
 
@@ -53,7 +48,6 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
       window_
       offset_ % Original offset
    end
-      
    properties(SetAccess = protected)
       version = '0.0.0'
    end
@@ -78,6 +72,19 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
    end
 
    methods
+      function set.verbose(self,bool)
+         validateattributes(bool,{'logical'},{'scalar'});
+         self.verbose = bool;
+      end
+            
+      function set.info(self,info)
+         if ~strcmp(info.KeyType,'char')
+            error('process:info:InputFormat','info keys must be chars.');
+         else
+            self.info = info;
+         end
+      end
+            
       function set.tStart(self,tStart)
          if isnan(tStart)
             self.tStart = 0;
