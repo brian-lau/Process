@@ -8,6 +8,7 @@
 classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Copyable
    properties
       info@containers.Map % Information about process
+      verbose
       userData
    end
    
@@ -190,19 +191,7 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
             end
          end
       end
-      
-%       function self = setInclusiveWindow(self)
-%          % Set windows to earliest and latest event times
-%          %
-%          % SEE ALSO
-%          % window, setWindow, applyWindow
-%          
-%          % FIXME, what happens for sampledProcess??? if we resample???
-%          for i = 1:numel(self)
-%             self(i).window = [min(self(i).times_) max(self(i).times_)];
-%          end
-%       end
-      
+            
       function keys = infoKeys(self,flatBool)
          % Return array of keys in INFO dictionary
          %

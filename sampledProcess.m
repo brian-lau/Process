@@ -157,6 +157,7 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
       % 
       
    end
+   
    methods(Access = protected)
       function applyWindow(self)
          % Window original event times, setting

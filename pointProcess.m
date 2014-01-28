@@ -231,7 +231,6 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
       end % constructor
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
-      %% Set functions      
       function self = setInclusiveWindow(self)
          % Set windows to earliest and latest event times
          %
@@ -256,7 +255,6 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          end
       end
       
-      %% Get Functions
       function count = get.count(self)
          % # of event times within windows
          if isempty(self.times)
@@ -356,95 +354,89 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          end
       end
             
-      function self = insertTimes(self,x,y)
+      function self = insertTimes(self,times,values,labels)
          % Insert times
          % Note that this adjusts tStart and tEnd to include all times.
+         % Note that if there is already an offset, new times are added to
+         % original times (w/out offset), and then rewindowed and offset
          %
-         % x - either an array of event times to insert
-         %     or a containers.Map object, with keys of type 'double'
-         %     defining the event times to add
-         % y - values associated with event times to insert
+         % times  - either an array of event times to insert
+         %          or a containers.Map object, with keys of type 'double'
+         %          defining the event times to add
+         % values - values associated with event times to insert
+         % labels - strings defining which process to insert to
          %
          % SEE ALSO
          % removeTimes
          
          % TODO
          % perhaps additional flags to overwrite? no, replaceTimes
-         % What if there is already an offset? new times are added to
-         % original times (w/out offset), and then rewindowed and offset
-         nObj = numel(self);
-         if nargin == 2
-            if isnumeric(x)
-               x = repmat({x},nObj,1);
-            elseif isa(x,'containers.Map')
-               times = cell2mat(x.keys);
-               values = x.values;
-               insertTimes(self,times,values);
-               return
-            elseif iscell(x)
-               if numel(x) ~= nObj
-                  error('pointProcess:insertTimes:InputFormat',...
-                     'Cell array of times must match numel(pointProcess)');
-               end
-            else
-               error('pointProcess:insertTimes:InputFormat',...
-                  'Input must be numeric or cell array');
-            end
-         elseif nargin == 3
-            if isnumeric(x) && iscell(y)
-               if numel(x) ~= numel(y)
-                  error('pointProcess:insertTimes:InputFormat',...
-                     'All times must have matching values.');
-               else
-                  x = repmat({x},nObj,1);
-                  y = repmat({y},nObj,1);
-               end
-            elseif iscell(x) && iscell(y)
-               if ~isequal(numel(x),numel(y),nObj)
-                  error('pointProcess:insertTimes:InputFormat',...
-                     'Dimensions must match numel(pointProcess)');
-               end
-            else
-               error('pointProcess:insertTimes:InputFormat',...
-                  'Inputs must be (numeric,cell) or (cell,cell).');
-            end
-         else
-            error('pointProcess:insertTimes:InputCount',...
-               'Incorrect number of inputs.');
+         if nargin < 3
+            error('pointProcess:insertTimes:InputFormat',...
+               'There must be values for each inserted time');
          end
-
+         if numel(times) ~= numel(values)
+            error('pointProcess:insertTimes:InputFormat',...
+               'There must be values for each inserted time');
+         end
          for i = 1:numel(self)
-            times = x{i};
-            if exist('y','var')
-               values = y{i};
-            else
-               values = cell(size(times));
+            if nargin < 4
+               % Insert same times & values from all
+               labels = self(i).labels;
             end
             
-            % Ignore redundant times
-            ind = ismember(times,self(i).times_);
-            if any(ind)
-               fprintf('%g/%g redundant event times ignored.\n',sum(ind),length(ind));
-               times(ind) = [];
-               values(ind) = [];
-            end
-            
-            if numel(times) > 0
-               % Merge
-               [self(i).times_,I] = sort([self(i).times_,times]);
-               temp = [self(i).values_,values];
-               self(i).values_ = temp(I);
-               % Reset properties that depend on event times
-               if min(times) < self(i).tStart
-                  self(i).tStart = min(times);
+            indL = find(ismember(self(i).labels,labels));
+            if any(indL)
+               % Index of redundant times
+               indR = cellfun(@(x) ismember(times,x),self(i).times_(indL),'uni',0);
+               for j = 1:numel(indL)
+                  times2Insert{j} = times;
+                  values2Insert{j} = values;
+                  if any(indR{j})
+                     fprintf('%g/%g redundant event times ignored for %s.\n',...
+                        sum(indR{j}),length(indR{j}),self(i).labels{indL(j)});
+                     times2Insert{j}(indR{j}) = [];
+                     values2Insert{j}(indR{j}) = [];
+                  end
+                  
+                  if any(times2Insert{j})
+                     % Check that we can concatenate values
+                        % Values must match type of present values for contcatenation
+                     if isequal(class(values2Insert{j}),class(self.values_{indL(j)}))
+                        % Merge
+                        [self(i).times_{indL(j)},I] = ...
+                           sort([self(i).times_{indL(j)} ; times2Insert{j}(:)]);
+                        temp = [self(i).values_{indL(j)} ; values2Insert{j}(:)];
+                        %temp = self(i).values_{indL(j)};
+                        %temp((end+1):(end+1+numel(values2Insert{j}))) = ...
+                        %   values2Insert{j};
+                        self(i).values_{indL(j)} = temp(I);
+                        inserted(j) = true;
+                     else
+                        inserted(j) = false;
+                        warning('pointProcess:insertTimes:InputFormat',...
+                           ['times not added for ' self(i).labels{indL} ...
+                           ' because value type does not match']);
+                     end
+                  else
+                     inserted(j) = false;
+                  end
                end
-               if max(times) > self(i).tEnd
-                  self(i).tEnd = max(times);
+               
+               if any(inserted)
+                  timesInserted = cell2mat(times2Insert(inserted));
+                  % Reset properties that depend on event times
+                  if min(timesInserted) < self(i).tStart
+                     self(i).tStart = min(timesInserted);
+                  end
+                  if max(timesInserted) > self(i).tEnd
+                     self(i).tEnd = max(timesInserted);
+                  end
+                  oldOffset = self(i).offset;
+                  self(i).offset = 'windowIsReset';
+                  applyWindow(self(i));
+                  self(i).offset = oldOffset;
                end
-               oldOffset = self(i).offset;
-               self(i).offset = 'windowIsReset';
-               applyWindow(self(i));
-               self(i).offset = oldOffset;
             end
          end
       end
@@ -461,31 +453,31 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          %
          % SEE ALSO
          % insertTimes
-         if nargin ~= 2
+         if nargin < 2
             error('pointProcess:removeTimes:InputFormat',...
                'You must provide times to remove.');
          end
-         if nargin < 3
-            labels = self.labels;
-         end
-         
          for i = 1:numel(self)
-            indL = ismember(self.labels,labels);
-            
+            if nargin < 3
+               % Remove same times from all
+               labels = self(i).labels;
+            end
+            indL = find(ismember(self(i).labels,labels));
             if any(indL)
-               %indT = 
-               indT = ismember(self(i).times_,times);
-               
-               if any(indT)
-                  self(i).times_(indT) = [];
-                  self(i).values_(indT) = [];
-                  
+               indT = cellfun(@(x) ismember(x,times),self(i).times_(indL),'uni',0);               
+               for j = 1:numel(indL)
+                  if any(indT{j})
+                     self(i).times_{indL(j)}(indT{j}) = [];
+                     self(i).values_{indL(j)}(indT{j}) = [];                     
+                  end
+               end
+               if any(cellfun(@(x) any(x),indT))
                   % Reset properties that depend on event times
                   oldOffset = self(i).offset;
                   self(i).offset = 'windowIsReset';
-                  applyWindow(self)
+                  applyWindow(self(i));
                   self(i).offset = oldOffset;
-               end
+               end               
             end
          end
       end
