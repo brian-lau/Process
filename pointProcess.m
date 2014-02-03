@@ -1,4 +1,8 @@
 classdef(CaseInsensitiveProperties = true) pointProcess < process         
+   properties(AbortSet)
+      tStart % Start time of process
+      tEnd   % End time of process
+   end
    % These dependent properties all apply the window property
    properties(SetAccess = private, Dependent = true, Transient = true)
       % # of events within window
@@ -49,8 +53,9 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          p.addParamValue('times',{},@(x) isnumeric(x) || iscell(x));
          p.addParamValue('values',{},@(x) isvector(x) || iscell(x) );
          p.addParamValue('labels',{});
+         p.addParamValue('quality',[]);
          p.addParamValue('window',[],@isnumeric);
-         p.addParamValue('offset',[],@isnumeric);
+         p.addParamValue('offset',0,@isnumeric);
          p.addParamValue('tStart',[],@isnumeric);
          p.addParamValue('tEnd',[],@isnumeric);
          p.parse(varargin{:});
@@ -58,7 +63,8 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          self.info = p.Results.info;
          
          % Create the values cell array
-         if ~isempty(p.Results.times) %&& ~any(isnan(p.Results.times))
+         % FIXME not sorting values yet
+         if ~isempty(p.Results.times)
             if isnumeric(p.Results.times)
                [a,b] = unique(p.Results.times(:));
                eventTimes{1} = a;
@@ -92,7 +98,10 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
             return;
          end
          
-         %% If we have event times
+         % If we have event times
+         self.times_ = eventTimes;
+         self.values_ = values;
+                  
          % Define the start and end times of the process
          if isempty(p.Results.tStart)
             self.tStart = min([cellfun(@min,eventTimes) 0]);
@@ -104,32 +113,10 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          else
             self.tEnd = p.Results.tEnd;
          end
-         
-         % Create labels
-         if isempty(p.Results.labels)
-            for i = 1:numel(eventTimes)
-               labels{1,i} = ['id' num2str(i)];
-            end
-            self.labels = labels;
-         else
-            %FIXME
-         end
-         
-         % Discard event times & values outside of start and end
-         ind = cellfun(@(x) (x>=self.tStart) & (x<=self.tEnd),eventTimes,'uni',0);
-         if ~any(cellfun(@any,ind))
-            self.times_ = {};
-            self.values_ = {};
-            return;
-         end
-         for i = 1:numel(eventTimes)
-            self.times_{i} = eventTimes{i}(ind{i});
-            self.values_{i} = values{i}(ind{i});
-         end
 
          % Set the window
          if isempty(p.Results.window)
-            self.window = [min(cellfun(@min,self.times_)) max(cellfun(@max,self.times_))];
+            self.setInclusiveWindow();
          else
             self.window = self.checkWindow(p.Results.window,size(p.Results.window,1));
          end
@@ -141,21 +128,53 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
             self.offset = self.checkOffset(p.Results.offset,size(p.Results.offset,1));
          end         
 
+         % Create labels
+         self.labels = p.Results.labels;
+
+         self.quality = p.Results.quality;
+
          % Store original window and offset for resetting
          self.window_ = self.window;
          self.offset_ = self.offset;
       end % constructor
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
+      function set.tStart(self,tStart)
+         if isscalar(tStart) && isnumeric(tStart)
+            self.tStart = tStart;
+         else
+            error('bad start');
+         end
+         self.discardBeforeStart();
+         if ~isempty(self.tEnd)
+            self.setInclusiveWindow();
+         end
+      end
+      
+      function set.tEnd(self,tEnd)
+         % TODO, validate against tStart
+         if isscalar(tEnd) && isnumeric(tEnd)
+            self.tEnd = tEnd;
+         else
+            error('bad end');
+         end
+         self.discardAfterEnd();
+         if ~isempty(self.tStart)
+            self.setInclusiveWindow();
+         end
+      end
+      
       function self = setInclusiveWindow(self)
          % Set windows to earliest and latest event times
          %
          % SEE ALSO
          % window, setWindow, applyWindow
-         
-         % FIXME, what happens for sampledProcess??? if we resample???
          for i = 1:numel(self)
-            self(i).window = [min(cellfun(@min,self.times_)) max(cellfun(@max,self.times_))];
+            tempMin = cellfun(@min,self(i).times_,'uni',0);
+            tempMin = min(vertcat(tempMin{:}));
+            tempMax = cellfun(@max,self(i).times_,'uni',0);
+            tempMax = max(vertcat(tempMax{:}));
+            self(i).window = [tempMin tempMax];
          end
       end
       
@@ -167,6 +186,9 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          % setInclusiveWindow
          for i = 1:numel(self)
             self(i).window = self(i).window_;
+            % Directly apply windod in case window_ = window
+            self.offset = 'windowIsReset';
+            applyWindow(self);
             self(i).offset = self(i).offset_;
          end
       end
@@ -270,7 +292,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          end
       end
             
-      function self = insertTimes(self,times,values,labels)
+      function self = insert(self,times,values,labels)
          % Insert times
          % Note that this adjusts tStart and tEnd to include all times.
          % Note that if there is already an offset, new times are added to
@@ -283,16 +305,16 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          % labels - strings defining which process to insert to
          %
          % SEE ALSO
-         % removeTimes
+         % remove
          
          % TODO
          % perhaps additional flags to overwrite? no, replaceTimes
          if nargin < 3
-            error('pointProcess:insertTimes:InputFormat',...
+            error('pointProcess:insert:InputFormat',...
                'There must be values for each inserted time');
          end
          if numel(times) ~= numel(values)
-            error('pointProcess:insertTimes:InputFormat',...
+            error('pointProcess:insert:InputFormat',...
                'There must be values for each inserted time');
          end
          for i = 1:numel(self)
@@ -330,7 +352,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
                         inserted(j) = true;
                      else
                         inserted(j) = false;
-                        warning('pointProcess:insertTimes:InputFormat',...
+                        warning('pointProcess:insert:InputFormat',...
                            ['times not added for ' self(i).labels{indL} ...
                            ' because value type does not match']);
                      end
@@ -341,6 +363,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
                
                if any(inserted)
                   timesInserted = cell2mat(times2Insert(inserted));
+                  oldWindow = self(i).window;
                   % Reset properties that depend on event times
                   if min(timesInserted) < self(i).tStart
                      self(i).tStart = min(timesInserted);
@@ -350,6 +373,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
                   end
                   oldOffset = self(i).offset;
                   self(i).offset = 'windowIsReset';
+                  self(i).window = oldWindow;
                   applyWindow(self(i));
                   self(i).offset = oldOffset;
                end
@@ -357,7 +381,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          end
       end
       
-      function self = removeTimes(self,times,labels)
+      function self = remove(self,times,labels)
          % Remove times and associated values
          % Note that this does NOT change tStart or tEnd.
          %
@@ -368,9 +392,9 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          %          default = all
          %
          % SEE ALSO
-         % insertTimes
+         % insert
          if nargin < 2
-            error('pointProcess:removeTimes:InputFormat',...
+            error('pointProcess:remove:InputFormat',...
                'You must provide times to remove.');
          end
          for i = 1:numel(self)
@@ -457,14 +481,12 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          end
       end
       
-      function chop(self,shiftToWindow)
+      function obj = chop(self,shiftToWindow)
          % TODO
          % can we rechop?
          %     yes, not sure its useful, but i guess it should work.
          %     eg., chop first by trials, then chop relative to an event
          %     within each trial?
-         %     references to info will get ugly, produce unexpected
-         %     behavior?
          %
          % need to handle case where there is an offset?, or perhaps there
          % should be a convention?
@@ -478,14 +500,13 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          end
          
          nWindow = size(self.window,1);
-         % TODO, looped allocation
-         % http://www.mathworks.com/support/bugreports/893538
+         % FIXME, http://www.mathworks.com/support/bugreports/893538
+         % May need looped allocation if there is a circular reference.
          obj(nWindow) = pointProcess();
          oldOffset = self.offset;
          self.offset = 0;
-         for i = 1:nWindow
-            % The info map will be a reference for all elements
-            obj(i).info = self.info;
+         for i = 1:nWindow            
+            obj(i).info = copyInfo(self);
             
             if shiftToWindow
                shift = self.window(i,1);
@@ -493,8 +514,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
                shift = 0;
             end
             
-            obj(i).times_ = cellfun(@(x) x - shift,...
-                                    self.times(i,:),'uni',0);
+            obj(i).times_ = cellfun(@(x) x - shift,self.times(i,:),'uni',0);
             obj(i).values_ = self.values(i,:);
 
             obj(i).tStart = self.window(i,1) - shift;
@@ -507,17 +527,42 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
             obj(i).offset_ = self.offset_ + self.window(i,1);
          end
          
-         % Currently Matlab OOP doesn't allow the handle to be
-         % reassigned, ie self = obj, so we do a silent pass-by-value
-         % http://www.mathworks.com/matlabcentral/newsreader/view_thread/268574
-         assignin('caller',inputname(1),obj);
+         if nargout == 0
+            % Currently Matlab OOP doesn't allow the handle to be
+            % reassigned, ie self = obj, so we do a silent pass-by-value
+            % http://www.mathworks.com/matlabcentral/newsreader/view_thread/268574
+            assignin('caller',inputname(1),obj);
+         end
       end % chop
       
-      %% Intervals?
-      function iei = intervals(self)
-         % Interevent interval representation
-         iei = cellfun(@diff,self.times,'UniformOutput',false);
+      function [values,times] = sync(self,event,window)
+         self.setInclusiveWindow;
+         if nargin < 3
+            temp = vertcat(self.window);
+            temp = bsxfun(@minus,temp,event(:));
+            window = [min(temp(:,1)) max(temp(:,2))];
+         end
+         nObj = numel(self);
+         if size(window,1) == 1
+            window = repmat(window,nObj,1);
+            window = bsxfun(@plus,window,event(:));
+%            window = mat2cell(window,ones(nObj,1),2);
+            
+            self.setWindow(window);
+            self.setOffset(-event);
+         else
+            error('not done')
+         end
+         if nargout
+            % TODO for pointprocess not obvious...
+            [times,values] = arrayfun(@(x) deal(x.times{1,:},x.values{1,:}),self,'uni',false);
+         end
       end
+%       %% Intervals?
+%       function iei = intervals(self)
+%          % Interevent interval representation
+%          iei = cellfun(@diff,self.times,'UniformOutput',false);
+%       end
 
 %       function cp = countingProcess(self)
 %          % Counting process representation
@@ -534,8 +579,8 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
 %       end
       
       %% Display
-      function h = plot(self,varargin)
-        % alias to raster
+      function [h,yOffset] = plot(self,varargin)
+         [h,yOffset] = raster(self,varargin{:});
       end
       
       function [h,yOffset] = raster(self,varargin)
@@ -746,6 +791,32 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
             end
          end
       end
-   end % methods(Private)
+      
+      function discardBeforeStart(self)
+         ind = cellfun(@(x) x<self.tStart,self.times_,'uni',0);
+         if any(cellfun(@any,ind))
+            for i = 1:numel(self.times_)
+               self.times_{i}(ind{i}) = [];
+               self.values_{i}(ind{i}) = [];
+            end
+         end
+      end
+      
+      function discardAfterEnd(self)
+         ind = cellfun(@(x) (x>self.tEnd),self.times_,'uni',0);
+         if any(cellfun(@any,ind))
+            for i = 1:numel(self.times_)
+               self.times_{i}(ind{i}) = [];
+               self.values_{i}(ind{i}) = [];
+            end
+         end
+      end
+   end % methods(Protected)
+   
+%    methods(Static)
+%       function sync(p,)
+%          
+%       end
+%    end
 end % classdef
 

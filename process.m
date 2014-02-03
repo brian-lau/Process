@@ -4,25 +4,28 @@
 % R2011a - matlab.mixin.Copyable for copying handle objects
 %
 % TODO
-% move checkWindows/checkOffset into static methods or even package
+% move checkWindows/checkOffset into package?
+% set only in constructor
+%   - clock, timeUnit
 classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Copyable
    properties
       info@containers.Map % Information about process
       verbose
-      userData
    end
    properties(SetAccess = protected)
       timeUnit % Time representation (placeholder)
       clock % Clock info (drift-correction)
    end
    properties(AbortSet)
-      tStart % Start time of process
-      tEnd   % End time of process
+      %tStart % Start time of process
+      %tEnd   % End time of process
       window % [min max] time window of interest
+      % FIXME offset is a misleading name? could imply offset in values...
       offset % Offset of event/sample times relative to window
    end
    properties
       labels
+      quality
    end
    % Window-dependent, but only calculated on window change
    % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
@@ -62,6 +65,9 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
       %plot
       setInclusiveWindow(self)
       
+      % append
+      % prepend
+      
       % head
       % tail
    end
@@ -69,14 +75,11 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
    methods(Abstract, Access = protected)
       applyWindow(self)
       applyOffset(self,undo)
+      discardBeforeStart(self);
+      discardAfterEnd(self);
    end
 
    methods
-      function set.verbose(self,bool)
-         validateattributes(bool,{'logical'},{'scalar'});
-         self.verbose = bool;
-      end
-            
       function set.info(self,info)
          if ~strcmp(info.KeyType,'char')
             error('process:info:InputFormat','info keys must be chars.');
@@ -84,21 +87,10 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
             self.info = info;
          end
       end
-            
-      function set.tStart(self,tStart)
-         if isnan(tStart)
-            self.tStart = 0;
-         elseif isscalar(tStart) && isnumeric(tStart)
-            self.tStart = tStart;
-         end
-      end
       
-      function set.tEnd(self,tEnd)
-         % TODO, validate against tStart
-         % what is the point of tStart and tEnd??? should they be public?
-         if isscalar(tEnd) && isnumeric(tEnd)
-            self.tEnd = tEnd;
-         end
+      function set.verbose(self,bool)
+         validateattributes(bool,{'logical'},{'scalar'});
+         self.verbose = bool;
       end
       
       function set.window(self,window)
@@ -132,7 +124,7 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
             self.window = self.checkWindow(window,size(window,1));
          else
             if isnumeric(window)
-               % single window or windows, same for each process
+               % Single window or windows, same for each process
                window = self.checkWindow(window);
                [self.window] = deal(window);
             elseif iscell(window)
@@ -198,7 +190,46 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
             end
          end
       end
-            
+      
+      function set.labels(self,labels)
+         % FIXME, prevent clashes with attribute names
+         n = size(self.values_,2);
+         if isempty(labels)
+            for i = 1:n
+               labels{1,i} = ['id' num2str(i)];
+            end
+            self.labels = labels;
+         elseif iscell(labels) && (n>1)
+            if numel(labels) == n
+               if all(cellfun(@isstr,labels))
+                  self.labels = labels;
+               else
+                  error('bad label');
+               end
+            else
+               error('mismatch');
+            end
+         elseif (n==1) && ischar(labels)
+            self.labels = {labels};
+         else
+            error('bad label');
+         end
+      end
+      
+      function set.quality(self,quality)
+         n = size(self.values_,2);
+         if isempty(quality)
+            quality = ones(1,n);
+            self.quality = quality;
+         elseif isnumeric(quality) && (numel(quality)==n)
+            self.quality = quality(:)';
+         elseif isnumeric(quality) && (numel(quality)==1)
+            self.quality = repmat(quality,1,n);
+         else
+            error('bad quality');
+         end
+      end
+      
       function keys = infoKeys(self,flatBool)
          % Return array of keys in INFO dictionary
          %
@@ -225,7 +256,15 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
          % It is possible to restrict to keys by passing in additional args
          % self.doesInfoHaveValue(value,'keys',{cell array of keys})
          bool = self.mapHasValue({self.info},value,varargin{:});
-      end   
+      end
+      
+      function info = copyInfo(self)
+         if isempty(self.info)
+            info = containers.Map('KeyType','char','ValueType','any');
+         else
+            info = containers.Map(self.info.keys,self.info.values);
+         end
+      end
    end
    
    methods(Static, Access = protected)
