@@ -1,4 +1,4 @@
-classdef(CaseInsensitiveProperties = true) pointProcess < process         
+classdef(CaseInsensitiveProperties = true) PointProcess < Process         
    properties(AbortSet)
       tStart % Start time of process
       tEnd   % End time of process
@@ -12,7 +12,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
    methods
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       %% Constructor
-      function self = pointProcess(varargin)
+      function self = PointProcess(varargin)
          % Constructor, arguments are taken as name/value pairs
          % info     - Information about point process
          %            containers.Map
@@ -23,7 +23,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          %            If a smaller window is passed in, event times outside
          %            the window will be DISCARDED.
          
-         self = self@process;
+         self = self@Process;
          if nargin == 0
             return;
          end
@@ -31,7 +31,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          if nargin == 1
             times = varargin{1};
             assert(isnumeric(times) || iscell(times),...
-               'pointProcess:Constructor:InputFormat',...
+               'PointProcess:Constructor:InputFormat',...
                   ['Single inputs must be passed in as array of event times'...
                ', or cell array of arrays of event times.']);
             if isnumeric(times)
@@ -39,7 +39,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
                varargin{2} = times;
             else
                assert(all(cellfun(@isnumeric,times)),...
-                  'pointProcess:Constructor:InputFormat',...
+                  'PointProcess:Constructor:InputFormat',...
                   'Each element of cell array must be a numeric array.');
                varargin{1} = 'times';
                varargin{2} = times;
@@ -48,7 +48,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          
          p = inputParser;
          p.KeepUnmatched= false;
-         p.FunctionName = 'pointProcess constructor';
+         p.FunctionName = 'PointProcess constructor';
          p.addParamValue('info',containers.Map('KeyType','char','ValueType','any'));
          p.addParamValue('times',{},@(x) isnumeric(x) || iscell(x));
          p.addParamValue('values',{},@(x) isvector(x) || iscell(x) );
@@ -82,17 +82,17 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
                   values = p.Results.values;
                end
                assert(numel(eventTimes)==numel(values),...
-                  'pointProcess:constuctor:InputSize',...
+                  'PointProcess:constuctor:InputSize',...
                   '# of ''times'' must equal # of ''values''');
                values = reshape(values,size(eventTimes));
                assert(all(cellfun(@(x,y) numel(x)==numel(y),...
-                  values,eventTimes)),'pointProcess:constuctor:InputSize',...
+                  values,eventTimes)),'PointProcess:constuctor:InputSize',...
                   '# of ''times'' must equal # of ''values''');
                values = cellfun(@(x) x(:),values,'uni',0);
             end
          else
             if ~isempty(p.Results.values)
-               warning('pointProcess:Constructor:InputCount',...
+               warning('PointProcess:Constructor:InputCount',...
                   'Values ignored without event times');
             end
             return;
@@ -210,7 +210,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          % windowFun depends on three factors:
          %   1) The number of outputs requested from FUN (NOPT)
          %   2) The output format of FUN
-         %   3) Whether the pointProcess object is an array of objects
+         %   3) Whether the PointProcess object is an array of objects
          %
          % If one output is requested from FUN (nOpt = 1, the default),
          % then the expectation is that FUN returns scalar outputs that can
@@ -223,9 +223,9 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          % which case, ARRAY is returned as a cell array. For the case of
          % multiple outputs, this will be a cell array of cell arrays.
          %
-         % For arrays of pointProcess objects, ARRAY is a cell array where
+         % For arrays of PointProcess objects, ARRAY is a cell array where
          % each element is the output of windowFun called on the
-         % corresponding pointProcess object. Depending on 'UniformOutput',
+         % corresponding PointProcess object. Depending on 'UniformOutput',
          % this can again be an array or a cell array.
          %
          % INPUTS
@@ -236,7 +236,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          %
          % EXAMPLE
          % % process with different rates in two different windows
-         % spk = pointProcess('times',[rand(100,1) ; 1+rand(100,1)*10],'window',[0 1;1 10]);
+         % spk = PointProcess('times',[rand(100,1) ; 1+rand(100,1)*10],'window',[0 1;1 10]);
          % spk.raster('style','line');
          %
          % % Average inter-event interval in each window
@@ -310,11 +310,11 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          % TODO
          % perhaps additional flags to overwrite? no, replaceTimes
          if nargin < 3
-            error('pointProcess:insert:InputFormat',...
+            error('PointProcess:insert:InputFormat',...
                'There must be values for each inserted time');
          end
          if numel(times) ~= numel(values)
-            error('pointProcess:insert:InputFormat',...
+            error('PointProcess:insert:InputFormat',...
                'There must be values for each inserted time');
          end
          for i = 1:numel(self)
@@ -352,7 +352,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
                         inserted(j) = true;
                      else
                         inserted(j) = false;
-                        warning('pointProcess:insert:InputFormat',...
+                        warning('PointProcess:insert:InputFormat',...
                            ['times not added for ' self(i).labels{indL} ...
                            ' because value type does not match']);
                      end
@@ -394,7 +394,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          % SEE ALSO
          % insert
          if nargin < 2
-            error('pointProcess:remove:InputFormat',...
+            error('PointProcess:remove:InputFormat',...
                'You must provide times to remove.');
          end
          for i = 1:numel(self)
@@ -436,7 +436,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          % recurse
          p = inputParser;
          p.KeepUnmatched= true;
-         p.FunctionName = 'pointProcess valueFun method';
+         p.FunctionName = 'PointProcess valueFun method';
          % Intercept some parameters to override defaults
          p.addParamValue('nOutput',1,@islogical);
          p.addParamValue('args',{},@iscell);
@@ -466,7 +466,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
       % valueIsString
       
       function [bool,times] = hasValue(self,value) % valueIsEqual
-         % TODO handle pointProcess array
+         % TODO handle PointProcess array
          % return array in case of one window?
 %          nWindow = size(self.window,1);
 %          for i = 1:nWindow
@@ -495,14 +495,14 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          end
          
          if numel(self) > 1
-            error('pointProcess:chop:InputCount',...
-               'You can only chop a scalar pointProcess.');
+            error('PointProcess:chop:InputCount',...
+               'You can only chop a scalar PointProcess.');
          end
          
          nWindow = size(self.window,1);
          % FIXME, http://www.mathworks.com/support/bugreports/893538
          % May need looped allocation if there is a circular reference.
-         obj(nWindow) = pointProcess();
+         obj(nWindow) = PointProcess();
          oldOffset = self.offset;
          self.offset = 0;
          for i = 1:nWindow            
@@ -535,13 +535,26 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          end
       end % chop
       
-      function [values,times] = sync(self,event,window)
+      %function [values,times] = sync(self,event,window)
+      function [values,times] = sync(self,event,varargin)
+         p = inputParser;
+         p.KeepUnmatched= false;
+         p.FunctionName = 'PointProcess sync';
+         p.addRequired('event',@(x) isnumeric(x));
+         p.addParamValue('window',[]);
+         %p.addParamValue('resample',[]);
+         p.parse(event,varargin{:});
+
          self.setInclusiveWindow;
-         if nargin < 3
+
+         if isempty(p.Results.window)
             temp = vertcat(self.window);
             temp = bsxfun(@minus,temp,event(:));
             window = [min(temp(:,1)) max(temp(:,2))];
+         else
+            window = self.checkWindow(p.Results.window,size(p.Results.window,1));
          end
+         
          nObj = numel(self);
          if size(window,1) == 1
             window = repmat(window,nObj,1);
@@ -593,7 +606,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
 
          p = inputParser;
          p.KeepUnmatched= true;
-         p.FunctionName = 'pointProcess raster method';
+         p.FunctionName = 'PointProcess raster method';
          % Intercept some parameters to override defaults
          p.addParamValue('grpBorder',false,@islogical);
          p.addParamValue('labelXAxis',false,@islogical);
@@ -606,6 +619,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          if n == 1
             times = self.times;
          else
+            times = [self.times];
             %window = self.checkWindow(cat(1,self.window),n);
          end
          
@@ -627,22 +641,22 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
       %% Operators
       function plus(x,y)
          % Overloaded addition (plus, +)
-         % When one of (x,y) is a pointProcess, and the other a scalar, +
+         % When one of (x,y) is a PointProcess, and the other a scalar, +
          % will change the offset according to the scalar.
-         % When x & y are both pointProcesses, they will be merged
-         if isa(x,'pointProcess') && isa(y,'pointProcess')
+         % When x & y are both PointProcesses, they will be merged
+         if isa(x,'PointProcess') && isa(y,'PointProcess')
             % TODO not done yet
             % should merge the objects
             % order will matter, how to deal with names & info?
             % since x,y will be handles, we need to destroy one, and
             % reassignin to the leading variable?
-         elseif isa(x,'pointProcess') && isnumeric(y)
+         elseif isa(x,'PointProcess') && isnumeric(y)
             if numel(x) > 1
                [x.offset] = deal(list(y));
             else
                [x.offset] = deal(y);
             end
-         elseif isa(y,'pointProcess') && isnumeric(x)
+         elseif isa(y,'PointProcess') && isnumeric(x)
             if numel(y) > 1
                [y.offset] = deal(list(x));
             else
@@ -655,16 +669,16 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
       
       function minus(x,y)
          % Overloaded subtraction (minus, -)
-         if isa(x,'pointProcess') && isa(y,'pointProcess')
+         if isa(x,'PointProcess') && isa(y,'PointProcess')
             % not done yet
             % should delete the common times from object
-         elseif isa(x,'pointProcess') && isnumeric(y)
+         elseif isa(x,'PointProcess') && isnumeric(y)
             if numel(x) > 1
                [x.offset] = deal(list(-y));
             else
                [x.offset] = deal(-y);
             end
-         elseif isa(y,'pointProcess') && isnumeric(x)
+         elseif isa(y,'PointProcess') && isnumeric(x)
             if numel(y) > 1
                [y.offset] = deal(list(-x));
             else
@@ -683,7 +697,7 @@ classdef(CaseInsensitiveProperties = true) pointProcess < process
          % check units ?
          % maybe a 'strict' flag to compare window-dependent properties?
          % handle case where both inputs are a vector?
-         if isa(x,'pointProcess') && isa(y,'pointProcess')
+         if isa(x,'PointProcess') && isa(y,'PointProcess')
             % Handle case where one input is a vector
             nX = numel(x);
             nY = numel(y);

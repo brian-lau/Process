@@ -2,7 +2,7 @@
 % If multiple processes, currently cannot be multidimensional,
 % time = rows
 
-classdef(CaseInsensitiveProperties = true) sampledProcess < process   
+classdef(CaseInsensitiveProperties = true) SampledProcess < Process   
    properties(AbortSet)%(AbortSet, Access=?Segment)
       tStart % Start time of process
       tEnd   % End time of process
@@ -21,8 +21,8 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
    methods
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       %% Constructor
-      function self = sampledProcess(varargin)
-         self = self@process;
+      function self = SampledProcess(varargin)
+         self = self@Process;
          if nargin == 0
            return;
          end
@@ -30,7 +30,7 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
          if nargin == 1
             values = varargin{1};
             assert(isnumeric(values),...
-               'sampledProcess:Constructor:InputFormat',...
+               'SampledProcess:Constructor:InputFormat',...
                'Single inputs must be passed in as array of values');
             if isnumeric(values)
                varargin{1} = 'values';
@@ -40,7 +40,7 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
 
          p = inputParser;
          p.KeepUnmatched= false;
-         p.FunctionName = 'sampledProcess constructor';
+         p.FunctionName = 'SampledProcess constructor';
          p.addParamValue('info',containers.Map('KeyType','char','ValueType','any'));
          p.addParamValue('Fs',1);
          p.addParamValue('values',[],@ismatrix );
@@ -183,14 +183,14 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
          end
          
          if numel(self) > 1
-            error('sampledProcess:chop:InputCount',...
-               'You can only chop a scalar sampledProcess.');
+            error('SampledProcess:chop:InputCount',...
+               'You can only chop a scalar SampledProcess.');
          end
          
          nWindow = size(self.window,1);
          % FIXME, http://www.mathworks.com/support/bugreports/893538
          % May need looped allocation if there is a circular reference.
-         obj(nWindow) = sampledProcess();
+         obj(nWindow) = SampledProcess();
          oldOffset = self.offset;
          self.offset = 0;
          for i = 1:nWindow            
@@ -231,7 +231,7 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
        function [values,times] = sync(self,event,varargin)
          p = inputParser;
          p.KeepUnmatched= false;
-         p.FunctionName = 'sampledProcess sync';
+         p.FunctionName = 'SampledProcess sync';
          p.addRequired('event',@(x) isnumeric(x));
          p.addParamValue('window',[]);
          %p.addParamValue('resample',[]);
@@ -245,7 +245,6 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
             window = [min(temp(:,1)) max(temp(:,2))];
             window = self.checkWindow(window,size(window,1));
          else
-            %keyboard
             window = self.checkWindow(p.Results.window,size(p.Results.window,1));
          end
          
@@ -293,6 +292,53 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
          self.values = values;
          self.Fs = newFs;
       end
+      
+      function filter(self,b,a,fix)
+         if nargin < 4
+            fix = false;
+         end
+         if nargin < 3
+            a = 1;
+         end
+         for i = 1:numel(self)
+            for j = 1:size(self.window,1)
+               if fix
+                  self(i).values_ = filtfilt(b,a,self(i).values_);
+                  oldOffset = self(i).offset;
+                  %self.offset = 'windowIsReset';
+                  applyWindow(self(i));
+                  self(i).offset = oldOffset;
+               else
+                  self(i).values{j} = filtfilt(b,a,self(i).values{j});
+               end
+            end
+         end
+      end
+      
+      function [self,b] = highpass(self,corner,order,fix)
+         if nargin < 4
+            fix = false;
+         end
+         if nargin < 3
+            order = 100;
+         end
+         assert(corner > (corner-1),'Corner frequency too low');
+         Fs = unique([self.Fs]);
+         assert(numel(Fs)==1,'Must have same Fs');
+         nyquist = self.Fs/2;
+         
+         b = firls(order,[0 (corner-1)/nyquist corner/nyquist 1],[0 0 1 1]);
+         %freqz(b,1,[],'whole',Fs);
+         self.filter(b,1,fix);
+      end
+      
+      function [self,b] = lowpass(self,corner,order)
+         
+      end
+      
+      function [self,b] = bandpass(self,corner,order)
+      %b = firls(MUA_FILT_ORDER,[0 450/nyquist 500/nyquist 2500/nyquist 2550/nyquist 1],[0 0 1 1 0 0]);
+      end
 
       function self = interp(self)
       end
@@ -331,55 +377,8 @@ classdef(CaseInsensitiveProperties = true) sampledProcess < process
 %             end
 %          end
 %       end
-  
-% overloading subsref does not work for object arrays....
-% http://www.mathworks.com/matlabcentral/answers/57562-subsref-overload-has-fewer-outputs-than-expected-on-cell-attribute
-% http://www.mathworks.com/matlabcentral/answers/108854-overloading-subsref-and-multiple-outputs
-%       function varargout = subsref(self,S)%[result1,result2] = subsref(self,S)
-% %         keyboard
-% %         result1 = builtin('subsref',self,S);
-%          switch (length(S))
-%             % map(ARG)
-%             % map.ARG
-%             case 1
-%                switch S.type
-%                   case '.'
-%                      try
-%                         varargout= cell(1,nargout);
-%                         %result1 = builtin('subsref',self,S);
-%                         [varargout{:}]= builtin('subsref',self,S);
-%                         return;
-%                      catch err
-%                         
-%                         keyboard
-%                         ind = ismember(self.labels,S.subs);
-%                         if any(ind)
-%                            if size(self.window,1) == 1
-%                               result1 = self.values{1}(:,ind);
-%                               result2 = self.times{1};
-%                            else
-%                               result1 = cellfun(@(x) x(:,ind),self.values,'uni',0);
-%                               result2 = self.times;
-%                            end
-%                         else
-%                            result1 = builtin('subsref',self,S);
-%                         end
-%                      end
-%                   otherwise
-%                      result1 = builtin('subsref',self,S);
-%                end
-%             case 2
-%                keyboard
-%                switch S(1).type
-%                   case '.'
-%                      
-%                   otherwise
-%                      result1 = builtin('subsref',self,S);
-%                end
-%             otherwise
-%                result1 = builtin('subsref',self,S);
-%          end         
-%        end
+
+
    end
    
    methods(Access = protected)

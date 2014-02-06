@@ -7,10 +7,12 @@
 % move checkWindows/checkOffset into package?
 % set only in constructor
 %   - clock, timeUnit
-classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Copyable
+% FIXME offset is a misleading name? could imply offset in values...
+% TODO should we allow initial process be multiply windowed???
+classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Copyable
    properties
       info@containers.Map % Information about process
-      verbose
+%      verbose
    end
    properties(SetAccess = protected)
       timeUnit % Time representation (placeholder)
@@ -20,7 +22,6 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
       %tStart % Start time of process
       %tEnd   % End time of process
       window % [min max] time window of interest
-      % FIXME offset is a misleading name? could imply offset in values...
       offset % Offset of event/sample times relative to window
    end
    properties
@@ -47,7 +48,6 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
       times_ % Original event/sample times
       values_ % Original attribute/values
       % Original [min max] time window of interest
-      % TODO should we allow initial process be multiply windowed???
       window_
       offset_ % Original offset
    end
@@ -65,6 +65,14 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
       %plot
       setInclusiveWindow(self)
       
+      % extract = pull data out by labels
+      %align = sync
+      
+      %spectrum
+      %spectrogram
+      
+      % remove % delete by label
+      
       % append
       % prepend
       
@@ -81,17 +89,15 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
 
    methods
       function set.info(self,info)
-         if ~strcmp(info.KeyType,'char')
-            error('process:info:InputFormat','info keys must be chars.');
-         else
-            self.info = info;
-         end
+         assert(strcmp(info.KeyType,'char'),...
+            'Process:info:InputFormat','info keys must be chars.');
+         self.info = info;
       end
       
-      function set.verbose(self,bool)
-         validateattributes(bool,{'logical'},{'scalar'});
-         self.verbose = bool;
-      end
+%       function set.verbose(self,bool)
+%          validateattributes(bool,{'logical'},{'scalar'});
+%          self.verbose = bool;
+%       end
       
       function set.window(self,window)
          % Set the window property. Does not work for arrays of objects.
@@ -325,7 +331,7 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
             % Different windows for each element
             if numel(window) == n
                for i = 1:n
-                  validWindow{1,i} = process.checkWindow(window{i},size(window{i},1));
+                  validWindow{1,i} = Process.checkWindow(window{i},size(window{i},1));
                end
             else
                error('process:checkWindow:InputFormat',...
@@ -378,7 +384,7 @@ classdef(CaseInsensitiveProperties = true) process < hgsetget & matlab.mixin.Cop
             % Different offsets for each element
             if numel(offset) == n
                for i = 1:n
-                  validOffset{1,i} = process.checkOffset(offset{i},length(offset{i}));
+                  validOffset{1,i} = Process.checkOffset(offset{i},length(offset{i}));
                end
             else
                error('process:checkOffset:InputFormat',...
