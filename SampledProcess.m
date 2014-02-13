@@ -272,6 +272,9 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       end
       
       function self = resample(self,newFs)
+         % use lcm?
+         % http://www.mathworks.com/matlabcentral/fileexchange/45329-sample-rate-conversion/content/SRC/srconv.m
+         
          % resample data in window
          if self.Fs == newFs
             return;
@@ -328,6 +331,7 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
          nyquist = self.Fs/2;
          
          b = firls(order,[0 (corner-1)/nyquist corner/nyquist 1],[0 0 1 1]);
+         %keyboard
          %freqz(b,1,[],'whole',Fs);
          self.filter(b,1,fix);
       end
@@ -462,6 +466,20 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
    end
    
    methods(Static)
+      function obj = loadobj(S)
+         obj = SampledProcess('tStart',...
+            S.tStart,...
+            'Fs',S.Fs,...
+            'values',S.values_,...
+            'offset',S.offset_,...
+            'window',S.window_,...
+            'labels',S.labels,...
+            'info',S.info,...
+            'quality',S.quality);
+         obj.window = S.window;
+         obj.offset = S.offset;
+      end
+      
       function t = tvec(t0,dt,n)
          t = t0 + (0:dt:(dt*(n-1)))';
       end
