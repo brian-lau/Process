@@ -365,23 +365,16 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
          end
       end
       
-%       function [result1,result2] = extract(self,labels)
-%          %varargout= cell(1,nargout);
-%          %[varargout{:}]
-%          
-%          
-%          ind = ismember(self.labels,labels);
-%          if any(ind)
-%             if size(self.window,1) == 1
-%                result1 = self.values{1}(:,ind);
-%                result2 = self.times{1};
-%             else
-%                result1 = cellfun(@(x) x(:,ind),self.values,'uni',0);
-%                result2 = self.times;
-%             end
-%          end
-%       end
-
+      function out = extract(self,labels)
+         ind = ismember(self.labels,labels);
+         if any(ind)
+            if size(self.window,1) == 1
+               out = self.values{1}(:,ind);
+            else
+               out = cellfun(@(x) x(:,ind),self.values,'uni',0);
+            end
+         end
+      end
 
    end
    
