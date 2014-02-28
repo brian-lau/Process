@@ -214,6 +214,9 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
             obj(i).window = self.window(i,:) - shift;
             obj(i).offset = oldOffset(i);
             
+            obj(i).labels = self.labels;
+            obj(i).quality = self.quality;
+            
             % Need to set offset_ and window_
             obj(i).window_ = obj(i).window;
             obj(i).offset_ = self.offset_ + self.window(i,1);
@@ -366,12 +369,14 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       end
       
       function out = extract(self,labels)
-         ind = ismember(self.labels,labels);
-         if any(ind)
-            if size(self.window,1) == 1
-               out = self.values{1}(:,ind);
-            else
-               out = cellfun(@(x) x(:,ind),self.values,'uni',0);
+         for i = 1:numel(self)
+            ind = ismember(self(i).labels,labels);
+            if any(ind)
+               if size(self(i).window,1) == 1
+                  out{i} = self(i).values{1}(:,ind);
+               else
+                  out{i} = cellfun(@(x) x(:,ind),self(i).values,'uni',0);
+               end
             end
          end
       end
