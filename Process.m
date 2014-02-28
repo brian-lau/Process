@@ -205,7 +205,7 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
                labels{1,i} = ['id' num2str(i)];
             end
             self.labels = labels;
-         elseif iscell(labels) && (n>1)
+         elseif iscell(labels)
             if numel(labels) == n
                if all(cellfun(@isstr,labels))
                   self.labels = labels;
@@ -403,5 +403,5 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
             validOffset = offset(:);
          end
       end
-   end % methods(Static)   
+   end % methods(Static, Protected)
 end
