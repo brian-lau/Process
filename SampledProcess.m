@@ -307,7 +307,7 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
             a = 1;
          end
          for i = 1:numel(self)
-            for j = 1:size(self.window,1)
+            for j = 1:size(self(i).window,1)
                if fix
                   self(i).values_ = filtfilt(b,a,self(i).values_);
                   oldOffset = self(i).offset;
@@ -354,6 +354,26 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
          
       end
       
+      function self = interpFreq(self,freqs,freqrange,chunksize)
+         for i = 1:numel(self)
+            for j = 1:size(self(i).window,1)
+               for k = 1:size(self.values{j},2)
+                  self(i).values{j}(:,k) = chunkwiseDeline(self(i).values{j}(:,k),...
+                     self(i).Fs,freqs,freqrange,chunksize);
+               end
+            end
+         end
+      end
+      
+      function self = detrend(self)
+         for i = 1:numel(self)
+            for j = 1:size(self(i).window,1)
+               self(i).values{j} = bsxfun(@minus,self(i).values{j},...
+                  nanmean(self(i).values{j}));
+            end
+         end
+      end
+
       function windowFun(self,fun) % apply applyFunc func?
       end
       
