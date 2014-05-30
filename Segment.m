@@ -97,7 +97,6 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
             ind = cellfun(@(x) strcmp(class(x),dataType),self(i).data);
             proc{i} = self(i).data{ind};
          end
-         
       end
       
       % reset
