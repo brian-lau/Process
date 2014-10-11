@@ -224,12 +224,16 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
       
       function set.quality(self,quality)
          n = size(self.values_,2);
+         
+         assert(isnumeric(quality),'Process:quality:InputFormat',...
+            'Must be numeric');
+         
          if isempty(quality)
             quality = ones(1,n);
             self.quality = quality;
-         elseif isnumeric(quality) && (numel(quality)==n)
+         elseif numel(quality)==n
             self.quality = quality(:)';
-         elseif isnumeric(quality) && (numel(quality)==1)
+         elseif numel(quality)==1
             self.quality = repmat(quality,1,n);
          else
             error('bad quality');

@@ -195,7 +195,7 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
          self.offset = 0;
          for i = 1:nWindow            
             obj(i).info = copyInfo(self);
-            
+                        
             if shiftToWindow
                shift = self.window(i,1);
             else
@@ -217,6 +217,9 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
             % Need to set offset_ and window_
             obj(i).window_ = obj(i).window;
             obj(i).offset_ = self.offset_ + self.window(i,1);
+
+            obj(i).labels = self.labels;
+            obj(i).quality = self.quality;
          end
          
          if nargout == 0
