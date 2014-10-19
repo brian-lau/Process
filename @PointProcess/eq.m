@@ -54,4 +54,3 @@ if isa(x,'PointProcess') && isa(y,'PointProcess')
 else
    error('Eq is not defined for inputs');
 end
-end

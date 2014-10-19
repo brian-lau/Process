@@ -24,4 +24,4 @@ elseif isa(y,'PointProcess') && isnumeric(x)
 else
    error('Plus not defined for inputs');
 end
-end
+

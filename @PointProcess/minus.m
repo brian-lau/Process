@@ -18,4 +18,3 @@ elseif isa(y,'PointProcess') && isnumeric(x)
 else
    error('Minus not defined for inputs');
 end
-end

@@ -5,8 +5,7 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
    end
    % These dependent properties all apply the window property
    properties(SetAccess = private, Dependent = true, Transient = true)
-      % # of events within window
-      count
+      count % # of events in window
    end
    
    methods
@@ -164,34 +163,8 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
          end
       end
       
-      function self = setInclusiveWindow(self)
-         % Set windows to earliest and latest event times
-         %
-         % SEE ALSO
-         % window, setWindow, applyWindow
-         for i = 1:numel(self)
-            tempMin = cellfun(@min,self(i).times_,'uni',0);
-            tempMin = min(vertcat(tempMin{:}));
-            tempMax = cellfun(@max,self(i).times_,'uni',0);
-            tempMax = max(vertcat(tempMax{:}));
-            self(i).window = [tempMin tempMax];
-         end
-      end
-      
-      function self = reset(self)
-         % Reset windows & offsets to state when object was created if it
-         % has not been chopped, otherwise to when it was chopped.
-         %
-         % SEE ALSO
-         % setInclusiveWindow
-         for i = 1:numel(self)
-            self(i).window = self(i).window_;
-            % Directly apply windod in case window_ = window
-            self.offset = 'windowIsReset';
-            applyWindow(self);
-            self(i).offset = self(i).offset_;
-         end
-      end
+      self = setInclusiveWindow(self)
+      self = reset(self)
       
       function count = get.count(self)
          % # of event times within windows
@@ -204,232 +177,30 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
       
       %%
       output = windowFun(self,fun,nOpt,varargin)
-            
       self = insert(self,times,values,labels)
-      
       self = remove(self,times,labels)
-      
-      function output = valueFun(self,fun,varargin)
-         % Apply a function to windowValues
-         
-         % need to deal with arbitrary arguments to fun
-         % need to deal with arbitrary outputs from fun
-         % numel(self) > 1, see windowFun
-         
-         % trap parameters
-         % Specific to cellfun 'UniformOutput' & ErrorHandler
-         % Non-specific
-         % args
-         % recurse
-         p = inputParser;
-         p.KeepUnmatched= true;
-         p.FunctionName = 'PointProcess valueFun method';
-         % Intercept some parameters to override defaults
-         p.addParamValue('nOutput',1,@islogical);
-         p.addParamValue('args',{},@iscell);
-         p.parse(varargin{:});
-         % Passed through to cellfun
-         params = p.Unmatched;
-
-         nWindow = size(self.window,1);
-         nArgs = numel(p.Results.args);
-%          if nArgs ~= nargin(fun)
-%             error('');
-%          end
-
-         for i = 1:nWindow
-            % Construct function arguments (see cellfun) as a cell array to
-            % use comman-separated expansion
-            temp = p.Results.args;
-            args = cell(1,nArgs);
-            for j = 1:numel(temp)
-               args{j} = repmat(temp(j),1,self.count(i));
-            end
-            output{i,1} = cellfun(fun,self.windowedValues{i},args{:});
-         end
-      end
-      
-      % valueIsEqual
-      % valueIsString
-      
-      function [bool,times] = hasValue(self,value) % valueIsEqual
-         % TODO handle PointProcess array
-         % return array in case of one window?
-%          nWindow = size(self.window,1);
-%          for i = 1:nWindow
-%             bool(i,1) = valueFun(self,@(x) x==value);
-%             times{i,1} = self.windowedTimes{i}(bool{i,1});
-%          end
-         bool = valueFun(self,@(x) x==value);
-         
-         nWindow = size(self.window,1);
-         for i = 1:nWindow
-            times{i,1} = self.times{i}(bool{i,1});
-         end
-      end
-      
       obj = chop(self,shiftToWindow)
-      
+      output = valueFun(self,fun,varargin)
+      [bool,times] = hasValue(self,value)
       [values,times] = sync(self,event,varargin)
-      
-%       %% Intervals?
-%       function iei = intervals(self)
-%          % Interevent interval representation
-%          iei = cellfun(@diff,self.times,'UniformOutput',false);
-%       end
-
-%       function cp = countingProcess(self)
-%          % Counting process representation
-%          if any(isnan(self.window))
-%             cp = [NaN NaN];
-%          else
-%             %window = self.window;
-%             %times = getTimes(self,window);
-%             times = times{1};
-%             count = cumsum(ones(size(times)));
-%             tStart = max(-inf,unique(min(times)));
-%             cp = [[tStart;times] , [0;count]];
-%          end
-%       end
+      iei = intervals(self)
+      cp = countingProcess(self)
       
       %% Display
-      function [h,yOffset] = plot(self,varargin)
-         [h,yOffset] = raster(self,varargin{:});
-      end
+      [h,yOffset] = plot(self,varargin)
+      [h,yOffset] = raster(self,varargin)
       
-      function [h,yOffset] = raster(self,varargin)
-         % Raster plot
-         %
-         % For a full description of the possible parameters, 
-         %
-         % SEE ALSO
-         % plotRaster
-
-         p = inputParser;
-         p.KeepUnmatched= true;
-         p.FunctionName = 'PointProcess raster method';
-         % Intercept some parameters to override defaults
-         p.addParamValue('grpBorder',false,@islogical);
-         p.addParamValue('labelXAxis',false,@islogical);
-         p.addParamValue('labelYAxis',false,@islogical);
-         p.parse(varargin{:});
-         % Passed through to plotRaster
-         params = p.Unmatched;
-         
-         n = numel(self);
-         if n == 1
-            times = self.times;
-         else
-            times = [self.times];
-            %window = self.checkWindow(cat(1,self.window),n);
-         end
-         
-         if isempty(times)
-            % need to return handle and yOffset if they exist? TODO
-            if isfield(params,'h')
-               h = params.h;
-            end
-            if isfield(params,'yOffset')
-               yOffset = params.yOffset;
-            end
-         else
-            [h,yOffset] = plotRaster(times,p.Results,params);
-            xlabel('Time');
-            %xlabel(['Time (' self.unit ')']);
-         end         
-      end
-                  
       %% Operators
       plus(x,y)
-
       minus(x,y)
-   
       bool = eq(x,y)
    end % methods (Public)
    
    methods(Access = protected)
-      function applyWindow(self)
-         % Window original event times, setting
-         %     times
-         %     values
-         %     index
-         %     isValidWindow
-         % TODO
-         % Windows are inclusive on both sides, does this make sense???
-         nWindow = size(self.window,1);
-         times = self.times_;
-         if isempty(times)
-            return
-         end
-         nTimes = size(times,2);
-         values = self.values_;
-         window = self.window;
-         windowedTimes = cell(nWindow,nTimes);
-         windowedValues = cell(nWindow,nTimes);
-         windowIndex = cell(nWindow,nTimes);
-         isValidWindow = false(nWindow,1);
-         for i = 1:nWindow
-            for j = 1:nTimes
-               ind = (times{j}>=window(i,1)) & (times{j}<=window(i,2));
-               windowedTimes{i,j} = times{j}(ind);
-               windowedValues{i,j} = values{j}(ind);
-               windowIndex{i,j} = find(ind);
-               if (window(i,1)>=self.tStart) && (window(i,2)<=self.tEnd)
-                  isValidWindow(i) = true;
-               else
-                  isValidWindow(i) = false;
-               end
-            end
-         end
-         self.times = windowedTimes;
-         self.values = windowedValues;
-         self.index = windowIndex;
-         self.isValidWindow = isValidWindow;
-      end
-      
-      function applyOffset(self,undo)
-         % Offset times, 
-         if nargin == 1
-            undo = false;
-         end
-         if undo
-            offset = -self.offset;
-         else
-            offset = self.offset;
-         end
-         nTimes = size(self.times,2);
-         for i = 1:numel(offset)
-            for j = 1:nTimes
-               self.times{i,j} = self.times{i,j} + offset(i);
-            end
-         end
-      end
-      
-      function discardBeforeStart(self)
-         ind = cellfun(@(x) x<self.tStart,self.times_,'uni',0);
-         if any(cellfun(@any,ind))
-            for i = 1:numel(self.times_)
-               self.times_{i}(ind{i}) = [];
-               self.values_{i}(ind{i}) = [];
-            end
-         end
-      end
-      
-      function discardAfterEnd(self)
-         ind = cellfun(@(x) (x>self.tEnd),self.times_,'uni',0);
-         if any(cellfun(@any,ind))
-            for i = 1:numel(self.times_)
-               self.times_{i}(ind{i}) = [];
-               self.values_{i}(ind{i}) = [];
-            end
-         end
-      end
+      applyWindow(self)
+      applyOffset(self,undo)
+      discardBeforeStart(self)
+      discardAfterEnd(self)
    end % methods(Protected)
-   
-%    methods(Static)
-%       function sync(p,)
-%          
-%       end
-%    end
 end % classdef
 

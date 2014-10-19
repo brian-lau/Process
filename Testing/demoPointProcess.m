@@ -1,7 +1,7 @@
 % To get some help
-doc pointProcess
+doc PointProcess
 % Each object method has some documention
-help pointProcess.raster
+help PointProcess.raster
 
 clear all;
 
@@ -12,7 +12,7 @@ clear all;
 %
 % Name must be a string. It should be unique for data defined by a single
 % point process
-spk = pointProcess('name','neuron#10000001');
+spk = PointProcess('name','neuron#10000001');
 spk.name
 
 % Example of an unique (not very informative) label
@@ -52,7 +52,7 @@ spk.info('recording booth')
 
 clear all;
 %% Basic pointProcess object
-spk = pointProcess('times',3*rand(20,1))
+spk = PointProcess('times',3*rand(20,1))
 %
 % The properties provide access to the basic elements of a point process:
 %
@@ -87,7 +87,7 @@ spk.times{1}
 % pointProcess objects can be defined with a specific window. Note that
 % event times outside of the window passed into the contructor are *not*
 % discarded. 
-spk = pointProcess('times',3*rand(20,1),'window',[0 1])
+spk = PointProcess('times',3*rand(20,1),'window',[0 1])
 %
 % We can check this by setting a new window for this object that overlaps
 % with times we passed in, but are not in the window
@@ -103,13 +103,13 @@ spk.reset()
 % If you want to contruct a process with non-default tStart and tEnd times,
 % you can pass these in. Event times < tStart and > tEnd will be discarded.
 % This is the only time that event times are discarded.
-spk = pointProcess('times',3*rand(1,20),'tStart',0.5,'tEnd',2)
+spk = PointProcess('times',3*rand(1,20),'tStart',0.5,'tEnd',2)
 spk.times{1}
 
 % Note that there is an offset property as well, which allows you to
 % specify a temporal shift of the windowed spike times.
 % This is by default zero
-spk = pointProcess('times',rand(1,5))
+spk = PointProcess('times',rand(1,5))
 spk.offset
 spk.times{1}
 
@@ -120,7 +120,7 @@ spk.times{1}
 clear all
 %% Let's put these properties together to see how things might start getting
 % useful.
-spk = pointProcess('times',10*rand(1,100))
+spk = PointProcess('times',10*rand(1,100))
 % First off, there's a method for plotting data that's handy
 spk.raster
 
@@ -195,7 +195,7 @@ stem(stimOnsets,stim,'r')
 stem(resp,ones(size(resp)))
 
 % Construct a pointProcess object
-spk = pointProcess('times',resp);
+spk = PointProcess('times',resp);
 
 % The responses were constructed such that the rate was highest and fastest
 % when the stimulus was near zero, and progressively less responsive and
@@ -243,8 +243,8 @@ raster(spk)
 %   neuroscientists rarely use this representation, it is built in for
 %   future potential.
 %   The marks property can be a vector of objects (waveforms?)
-spk = pointProcess('times',randn(100,1),'marks',rand(100,1));
-stem(spk.times,spk.marks);
+spk = PointProcess('times',randn(100,1),'values',rand(100,1));
+stem(spk.times{1},spk.values{1});
 
 %% Methods - plotting
 clear all;
@@ -305,12 +305,12 @@ axis([-15 15 get(gca,'ylim')]);
 % This can be done using the overloaded operators. 
 % Note that this will move the windows as well.
 % Addition
-spk = spk + 5;
+spk + 5;
 spk.raster('style','line','grpColor','g','handle',subplot(312));
 axis([-15 15 get(gca,'ylim')]);
 %
 % Subtraction
-spk = spk - 5;
+spk - 5;
 % Note that this will move the windows as well
 spk.raster('style','line','grpColor','b','handle',subplot(313));
 axis([-15 15 get(gca,'ylim')]);
@@ -319,16 +319,16 @@ axis([-15 15 get(gca,'ylim')]);
 % Note that addition and subtraction actually change the times associated
 % with the point process. If you don't want to keep in mind what you added
 % and subtracted, you should reset the object before changing the window.
-spk = spk.reset();
+spk.reset();
 spk.window = [0 5];
 %
 figure;
 spk.raster('style','line','grpColor','r','handle',subplot(311));
 axis([-15 15 get(gca,'ylim')]);
-spk = spk + 5;
+spk + 5;
 spk.raster('style','line','grpColor','g','handle',subplot(312));
 axis([-15 15 get(gca,'ylim')]);
-spk = spk - 5;
+spk - 5;
 spk.raster('style','line','grpColor','b','handle',subplot(313));
 axis([-15 15 get(gca,'ylim')]);
 
@@ -336,7 +336,7 @@ axis([-15 15 get(gca,'ylim')]);
 % can be called with all the options for getPsth. As for raster these are 
 % name/value pairs that are case insensitive and can be passed in any order. 
 close all;
-spk = pointProcess('times',3*randn(150,1));
+spk = PointProcess('times',3*randn(150,1));
 % Plot raster
 spk.raster('style','line','handle',subplot(411));
 axis([-15 15 get(gca,'ylim')]);

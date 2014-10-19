@@ -12,13 +12,13 @@
 classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Copyable
    properties
       info@containers.Map % Information about process
-%      verbose
    end
    properties(SetAccess = protected)
       timeUnit % Time representation (placeholder)
-      clock % Clock info (drift-correction)
+      clock    % Clock info (drift-correction)
    end
    properties(AbortSet)
+      % tStart/tEnd are currently in subclasses since setters are different for each
       %tStart % Start time of process
       %tEnd   % End time of process
       window % [min max] time window of interest
@@ -31,24 +31,17 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
    % Window-dependent, but only calculated on window change
    % http://blogs.mathworks.com/loren/2012/03/26/considering-performance-in-object-oriented-matlab-code/
    properties(SetAccess = protected, Transient = true)
-      % Event/sample times
       % Note that any offset is applied *after* windowing, so times can be
       % outside of the windows property
-      times
-
-      % Attribute/value associated with each time
-      values
-      
-      % Boolean if window(s) lies within tStart and tEnd
-      isValidWindow
+      times % Event/sample times
+      values % Attribute/value associated with each time
+      isValidWindow % Boolean if window(s) lies within tStart and tEnd
    end
    properties(SetAccess = protected, Hidden = true)
       index % Indices into times/values in window
-
       times_ % Original event/sample times
       values_ % Original attribute/values
-      % Original [min max] time window of interest
-      window_
+      window_ % Original [min max] time window
       offset_ % Original offset
    end
    properties(SetAccess = protected)
@@ -65,8 +58,9 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
       %plot
       setInclusiveWindow(self)
       
-      % extract = pull data out by labels
-      %align = sync
+      % extract = pull data out by labels TODO FOR POINTPROCESS
+      % sync, currently this does nothing to the process. shouldn't we be
+      % able to make this permanent? Ie, define a new process
       
       %spectrum
       %spectrogram
@@ -75,9 +69,13 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
       
       % append
       % prepend
+      % fix = keep current data as original
       
       % head
       % tail
+      
+      %load?
+      %toFieldTrip
    end
    
    methods(Abstract, Access = protected)
@@ -93,12 +91,7 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
             'Process:info:InputFormat','info keys must be chars.');
          self.info = info;
       end
-      
-%       function set.verbose(self,bool)
-%          validateattributes(bool,{'logical'},{'scalar'});
-%          self.verbose = bool;
-%       end
-      
+            
       function set.window(self,window)
          % Set the window property. Does not work for arrays of objects.
          %
@@ -109,39 +102,6 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
          self.offset = 'windowIsReset';
          % Expensive, only call when windows are changed (AbortSet=true)
          applyWindow(self);
-      end
-      
-      function self = setWindow(self,window)
-         % Set the window property. Works for array object input, where
-         % window must either be
-         %   [1 x 2] vector applied to all elements of the object array
-         %   {nObjs x 1} cell vector containing windows for each element of
-         %       the object array
-         %
-         % SEE ALSO
-         % window, applyWindow
-         n = numel(self);
-         if n == 1
-            % single or multiple windows
-            if ~isnumeric(window)
-               error('process:setWindow:InputFormat',...
-                  'Window for a scalar process must be a numeric [nWin x 2] array.');
-            end
-            self.window = self.checkWindow(window,size(window,1));
-         else
-            if isnumeric(window)
-               % Single window or windows, same for each process
-               window = self.checkWindow(window);
-               [self.window] = deal(window);
-            elseif iscell(window)
-               % Different windows for each process
-               window = self.checkWindow(window,n);
-               [self.window] = deal(window{:});
-            else
-               error('process:setWindow:InputFormat',...
-                  'Window badly formatted.');
-            end
-         end
       end
       
       function set.offset(self,offset)
@@ -161,44 +121,15 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
          end
       end
       
-      function self = setOffset(self,offset)
-         % Set the offset property. Works for array object input, where
-         % offset must either be
-         %   scalar applied to all elements of the object array
-         %   {nObjs x 1} cell vector containing offsets for each element of
-         %       the object array
-         %
-         % SEE ALSO
-         % offset, applyOffset
-         n = numel(self);
-         if n == 1
-            % single or multiple offsets
-            if ~isnumeric(offset)
-               error('process:setOffset:InputFormat',...
-                  'Offset for a scalar process must be a numeric [nWin x 1] array.');
-            end
-            self.offset = self.checkOffset(offset,size(self.window,1));
-         else
-            if isscalar(offset) && isnumeric(offset)
-               % single offset or offsets, same for each process
-               offset = self.checkOffset(offset);
-               [self.offset] = deal(offset);
-            elseif isvector(offset) 
-               % Different offset for each process
-               offset = self.checkOffset(num2cell(offset),n);
-               [self.offset] = deal(offset{:});               
-            elseif iscell(offset)
-               % Different offset for each process
-               offset = self.checkWindow(offset,n);
-               [self.offset] = deal(offset{:});
-            else
-               error('process:setOffset:InputFormat','Bad offset');
-            end
-         end
-      end
+      % these handle object array assignment. seems like setters above
+      % should call down to these generically when numel(self)>1, and then
+      % these can be made private
+      self = setWindow(self,window)
+      self = setOffset(self,offset)
       
       function set.labels(self,labels)
          % FIXME, prevent clashes with attribute names
+         % FIXME, should check that labels are unique
          n = size(self.values_,2);
          if isempty(labels)
             for i = 1:n
@@ -224,7 +155,6 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
       
       function set.quality(self,quality)
          n = size(self.values_,2);
-         
          assert(isnumeric(quality),'Process:quality:InputFormat',...
             'Must be numeric');
          
@@ -240,172 +170,15 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
          end
       end
       
-      function keys = infoKeys(self,flatBool)
-         % Return array of keys in INFO dictionary
-         %
-         % If flatBool is true (default false), the returned cell array
-         % will be collapsed across all pointProcess elements passed in
-         if nargin < 2
-            flatBool = false;
-         end
-         
-         keys = arrayfun(@(x) x.info.keys,self,'uniformoutput',false);
-         if flatBool
-            keys = flatten(keys);
-         end
-      end
-      
-      function bool = infoHasKey(self,key)
-         % Boolean for whether INFO dictionary has key
-         bool = arrayfun(@(x,y) x.info.isKey(y),self,repmat({key},size(self)));
-      end
-            
-      function bool = infoHasValue(self,value,varargin)
-         % Boolean for whether INFO dictionary has value
-         %
-         % It is possible to restrict to keys by passing in additional args
-         % self.doesInfoHaveValue(value,'keys',{cell array of keys})
-         bool = self.mapHasValue({self.info},value,varargin{:});
-      end
-      
-      function info = copyInfo(self)
-         if isempty(self.info)
-            info = containers.Map('KeyType','char','ValueType','any');
-         else
-            info = containers.Map(self.info.keys,self.info.values);
-         end
-      end
+      keys = infoKeys(self,flatBool)
+      bool = infoHasKey(self,key)
+      bool = infoHasValue(self,value,varargin)
+      info = copyInfo(self)
    end
    
    methods(Static, Access = protected)
-      function [bool,keys] = mapHasValue(map,value,varargin)
-         % Check whether dictionary contains value
-         %
-         % OUTPUT
-         % bool - boolean indicating whether value exists in map
-         % keys - corresponding cell array of keys for which bool is true
-         %
-         % It is possible to restrict to keys by passing in additional args
-         % self.doesHashmapHaveValue(value,'keys',{cell array of keys})
-         %
-         % SEE ALSO
-         % mapfun
-         
-         % TODO, checking for cell array input?
-         
-         [temp,keys] = mapfun(@(x,y) isequal(x,y),map,{value},varargin{:});
-         bool = cellfun(@(x) any(x),temp);
-         if nargout == 2
-            for i = 1:numel(temp)
-               keys{i} = keys{i}(logical(temp{i}));
-            end
-         end
-      end
-      
-      function validWindow = checkWindow(window,n)
-         % Validate window, and replicate if necessary
-         %
-         % % single window
-         % [start end]
-         %
-         % % one window for each of n elements
-         % [start(1,1) end(1,1)
-         %    start(2,1) end(2,1)
-         %    start(n,1) end(n,1)
-         %    ]
-         %
-         % % aribitrary windows for each of n elements
-         % {
-         %   [start(1,1) end(1,1)   [start(1,2) end(1,2)   [start(1,n) end(1,n)]
-         %    start(2,1) end(2,1)]   start(2,2) end(2,2)]
-         %  }
-         %
-         % For example, to use the same set of windows for n elements,
-         % checkWindow({[-6 0;0 6;-6 6]},n)
-         % checkWindow({[0 1;1 2] [2 3]},2)
-         if nargin == 1
-            n = 1;
-         end
-         
-         if iscell(window)
-            % Same windows for each element
-            if numel(window) == 1
-               window(1:n) = window;
-            end
-            % Different windows for each element
-            if numel(window) == n
-               for i = 1:n
-                  validWindow{1,i} = Process.checkWindow(window{i},size(window{i},1));
-               end
-            else
-               error('process:checkWindow:InputFormat',...
-                  'Cell array window must be {[nx2]} or [nObjs x 2]');
-            end
-         else
-            if numel(window) == 2
-               window = window(:)';
-               if n > 1
-                  window = repmat(window,n,1);
-               end
-            end
-            if any(window(:,1)>=window(:,2))
-               error('process:checkWindow:InputValue',...
-                  'First element of window must be less than second');
-            end
-            validWindow = window;
-         end
-      end
-      
-      function validOffset = checkOffset(offset,n)
-         % Validate offset, and replicate if necessary
-         %
-         % % single offset
-         % [offset]
-         %
-         % % one offset for each of n elements
-         % [offset(1)
-         %  offset(2)
-         %  offset(n)
-         %    ]
-         %
-         % % aribitrary offsets for each of n elements
-         % {
-         %   [offset(1,1)   [offset(1,2)   [start(1,n) end(1,n)]
-         %    offset(2,1)]   offset(2,2)]   start(2,2) end(2,2)]
-         %  }
-         %
-         % For example, to use the same set of windows for n elements,
-         % checkWindow({[-6 0;0 6;-6 6]},n)
-         if nargin == 1
-            n = 1;
-         end
-         
-         if iscell(offset)
-            % Same offsets for each element
-            if numel(offset) == 1
-               offset(1:n) = offset;
-            end
-            % Different offsets for each element
-            if numel(offset) == n
-               for i = 1:n
-                  validOffset{1,i} = Process.checkOffset(offset{i},length(offset{i}));
-               end
-            else
-               error('process:checkOffset:InputFormat',...
-                  'Cell array offset must be {[nx1]} or [nObjs x 1]');
-            end
-         else
-            if numel(offset) == 1
-               if n > 1
-                  offset = repmat(offset,n,1);
-               end
-            end
-            if numel(offset) ~= n
-               error('process:checkOffset:InputFormat',...
-                  'Incorrect number of offsets.');
-            end
-            validOffset = offset(:);
-         end
-      end
+      [bool,keys] = mapHasValue(map,value,varargin)
+      validWindow = checkWindow(window,n)
+      validOffset = checkOffset(offset,n)
    end % methods(Static, Protected)
 end

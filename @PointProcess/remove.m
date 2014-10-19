@@ -37,4 +37,3 @@ for i = 1:numel(self)
       end
    end
 end
-end

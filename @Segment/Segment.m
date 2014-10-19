@@ -1,4 +1,6 @@
-% Probably should place tStart/tEnd
+% collection of processes defined by common start and end time
+% o Probably should place tStart/tEnd
+% o must check for common start and end times!
 
 classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Copyable
    properties
@@ -20,10 +22,14 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       %% Constructor
       function self = Segment(varargin)
+         
+         % if all inputs are of type PointProcess or SampledProcess,
+         % cat and add (no need to pass in paramvalue)
+         
          p = inputParser;
          p.KeepUnmatched= false;
          p.FunctionName = 'Segment constructor';
-         p.addParamValue('info',[]);
+         p.addParamValue('info',containers.Map('KeyType','char','ValueType','any'));
          p.addParamValue('pointProcesses',[]);
          p.addParamValue('sampledProcesses',[]);
          p.parse(varargin{:});
@@ -36,10 +42,10 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
 %          self.data = {self.pointProcesses self.sampledProcesses};
          self.data = {};
          if ~isempty(p.Results.pointProcesses)
-            self.data = [self.data  {p.Results.pointProcesses}];
+            self.data = [self.data {p.Results.pointProcesses}];
          end
          if ~isempty(p.Results.sampledProcesses)
-            self.data = [self.data  {p.Results.sampledProcesses}];
+            self.data = [self.data {p.Results.sampledProcesses}];
          end
       end% constructor
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -57,11 +63,6 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
          else
             bool = false;
          end
-%          if all(self.pointProcesses.window == self.sampledProcesses.window)
-%             bool = true;
-%          else
-%             bool = false;
-%          end
       end
       
       function bool = get.sameOffset(self)
@@ -73,19 +74,11 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
          else
             bool = false;
          end
-%          if all(self.pointProcesses.offset == self.sampledProcesses.offset)
-%             bool = true;
-%          else
-%             bool = false;
-%          end
       end
       
       function self = sync(self,event,varargin)
          for i = 1:numel(self)
-            %keyboard
             cellfun(@(x) x.sync(event,varargin{:}),self(i).data);
-            %self(i).pointProcesses.sync(event,varargin{:});
-            %self(i).sampledProcesses.sync(event,varargin{:});
          end
       end
       

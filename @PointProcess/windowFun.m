@@ -85,4 +85,3 @@ else
       output{i} = windowFun(self(i),fun,nOpt,varargin{:});
    end
 end
-end
