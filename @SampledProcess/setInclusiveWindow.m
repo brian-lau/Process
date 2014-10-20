@@ -4,6 +4,12 @@ function self = setInclusiveWindow(self)
 % SEE ALSO
 % window, setWindow, applyWindow
 for i = 1:numel(self)
-   self(i).window = [min(self(i).times_) max(self(i).times_)];
+   tempMin = min(self(i).times_);
+   tempMax = max(self(i).times_);
+   if tempMin == tempMax
+      self(i).window = [tempMin tempMax+eps];
+   else
+      self(i).window = [tempMin tempMax];
+   end
 end
 

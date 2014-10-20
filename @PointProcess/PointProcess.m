@@ -5,11 +5,10 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
    end
    % These dependent properties all apply the window property
    properties(SetAccess = private, Dependent = true, Transient = true)
-      count % # of events in window
+      count  % # of events in window
    end
    
    methods
-      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       %% Constructor
       function self = PointProcess(varargin)
          % Constructor, arguments are taken as name/value pairs
@@ -136,13 +135,19 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
          self.window_ = self.window;
          self.offset_ = self.offset;
       end % constructor
-      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       function set.tStart(self,tStart)
+         if ~isempty(self.tEnd)
+            if tStart > self.tEnd
+               error('PointProcess:tStart:InputValue',...
+                  'tStart must be less than tStart.');
+            end
+         end
          if isscalar(tStart) && isnumeric(tStart)
             self.tStart = tStart;
          else
-            error('bad start');
+            error('PointProcess:tStart:InputFormat',...
+               'tStart must be a numeric scalar.');
          end
          self.discardBeforeStart();
          if ~isempty(self.tEnd)
@@ -151,20 +156,23 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
       end
       
       function set.tEnd(self,tEnd)
-         % TODO, validate against tStart
+         if ~isempty(self.tStart)
+            if self.tStart > tEnd
+               error('PointProcess:tEnd:InputValue',...
+                  'tEnd must be greater than tStart.');
+            end
+         end
          if isscalar(tEnd) && isnumeric(tEnd)
             self.tEnd = tEnd;
          else
-            error('bad end');
+            error('PointProcess:tEnd:InputFormat',...
+               'tEnd must be a numeric scalar.');
          end
          self.discardAfterEnd();
          if ~isempty(self.tStart)
             self.setInclusiveWindow();
          end
       end
-      
-      self = setInclusiveWindow(self)
-      self = reset(self)
       
       function count = get.count(self)
          % # of event times within windows
@@ -175,14 +183,17 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
          end
       end
       
+      self = setInclusiveWindow(self)
+      self = reset(self)
+      obj = chop(self,shiftToWindow)
+      [values,times] = sync(self,event,varargin)
+      
       %%
       output = windowFun(self,fun,nOpt,varargin)
       self = insert(self,times,values,labels)
       self = remove(self,times,labels)
-      obj = chop(self,shiftToWindow)
       output = valueFun(self,fun,varargin)
       [bool,times] = hasValue(self,value)
-      [values,times] = sync(self,event,varargin)
       iei = intervals(self)
       cp = countingProcess(self)
       

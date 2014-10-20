@@ -102,6 +102,12 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
       function set.tStart(self,tStart)
+         if ~isempty(self.tEnd)
+            if tStart > self.tEnd
+               error('SampledProcess:tStart:InputValue',...
+                  'tStart must be less than tStart.');
+            end
+         end
          if isscalar(tStart) && isnumeric(tStart)
             pre = self.extendPre(self.tStart,tStart,1/self.Fs_);
             preV = nan(size(pre,1),size(self.values_,2));
@@ -109,7 +115,8 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
             self.values_ = [preV ; self.values_];
             self.tStart = tStart;
          else
-            error('bad start');
+            error('SampledProcess:tStart:InputFormat',...
+               'tStart must be a numeric scalar.');
          end
          self.discardBeforeStart();
          if ~isempty(self.tEnd)
@@ -118,8 +125,12 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       end
       
       function set.tEnd(self,tEnd)
-         % TODO, validate against tStart
-         % what is the point of tStart and tEnd??? should they be public?
+         if ~isempty(self.tStart)
+            if self.tStart > tEnd
+               error('SampledProcess:tEnd:InputValue',...
+                  'tEnd must be greater than tStart.');
+            end
+         end
          if isscalar(tEnd) && isnumeric(tEnd)
             post = self.extendPost(self.tEnd,tEnd,1/self.Fs_);
             postV = nan(size(post,1),size(self.values_,2));
@@ -127,7 +138,8 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
             self.values_ = [self.values_ ; postV];
             self.tEnd = tEnd;
          else
-            error('bad end');
+            error('SampledProcess:tEnd:InputFormat',...
+               'tEnd must be a numeric scalar.');
          end
          self.discardAfterEnd();
          if ~isempty(self.tStart)
@@ -147,6 +159,7 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       self = reset(self)
       obj = chop(self,shiftToWindow)
       [values,times] = sync(self,event,varargin)
+
       self = resample(self,newFs)
       self = filter(self,b,a,fix)
 
