@@ -6,9 +6,9 @@ function self = reset(self)
 % setInclusiveWindow
 for i = 1:numel(self)
    self(i).window = self(i).window_;
-   % Directly apply windod in case window_ = window
-   self.offset = 'windowIsReset';
-   applyWindow(self);
+   % Directly apply window in case window_ = window
+   self(i).offset = 'windowIsReset';
+   applyWindow(self(i));
    self(i).offset = self(i).offset_;
    self(i).Fs = self(i).Fs_;
 end
