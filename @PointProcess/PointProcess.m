@@ -141,6 +141,8 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
             if tStart > self.tEnd
                error('PointProcess:tStart:InputValue',...
                   'tStart must be less than tStart.');
+            elseif tStart == self.tEnd
+               self.tEnd = self.tEnd + eps(tempMax);
             end
          end
          if isscalar(tStart) && isnumeric(tStart)
@@ -160,6 +162,8 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
             if self.tStart > tEnd
                error('PointProcess:tEnd:InputValue',...
                   'tEnd must be greater than tStart.');
+            elseif self.tStart == tEnd
+               tEnd = tEnd + eps(tempMax);
             end
          end
          if isscalar(tEnd) && isnumeric(tEnd)
@@ -206,12 +210,16 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
       minus(x,y)
       bool = eq(x,y)
    end % methods (Public)
-   
+     
    methods(Access = protected)
       applyWindow(self)
       applyOffset(self,undo)
       discardBeforeStart(self)
       discardAfterEnd(self)
    end % methods(Protected)
-end % classdef
+
+   methods(Static)
+      obj = loadobj(S)
+   end
+ end % classdef
 

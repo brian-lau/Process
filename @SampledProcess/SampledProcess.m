@@ -19,7 +19,6 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
    end
    
    methods
-      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       %% Constructor
       function self = SampledProcess(varargin)
          self = self@Process;
@@ -99,13 +98,14 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
          self.window_ = self.window;
          self.offset_ = self.offset;
       end% constructor
-      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
       function set.tStart(self,tStart)
          if ~isempty(self.tEnd)
             if tStart > self.tEnd
                error('SampledProcess:tStart:InputValue',...
                   'tStart must be less than tStart.');
+            elseif tStart == self.tEnd
+               self.tEnd = self.tEnd + eps(tempMax);
             end
          end
          if isscalar(tStart) && isnumeric(tStart)
@@ -129,6 +129,8 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
             if self.tStart > tEnd
                error('SampledProcess:tEnd:InputValue',...
                   'tEnd must be greater than tStart.');
+            elseif self.tStart == tEnd
+               tEnd = tEnd + eps(tempMax);
             end
          end
          if isscalar(tEnd) && isnumeric(tEnd)

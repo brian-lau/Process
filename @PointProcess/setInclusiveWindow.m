@@ -9,7 +9,7 @@ for i = 1:numel(self)
    tempMax = cellfun(@max,self(i).times_,'uni',0);
    tempMax = max(vertcat(tempMax{:}));
    if tempMin == tempMax
-      self(i).window = [tempMin tempMax+eps];
+      self(i).window = [tempMin tempMax+eps(tempMax)];
    else
       self(i).window = [tempMin tempMax];
    end
