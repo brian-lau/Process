@@ -105,7 +105,7 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
                error('SampledProcess:tStart:InputValue',...
                   'tStart must be less than tStart.');
             elseif tStart == self.tEnd
-               self.tEnd = self.tEnd + eps(tempMax);
+               self.tEnd = self.tEnd + eps(self.tEnd);
             end
          end
          if isscalar(tStart) && isnumeric(tStart)
@@ -130,7 +130,7 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
                error('SampledProcess:tEnd:InputValue',...
                   'tEnd must be greater than tStart.');
             elseif self.tStart == tEnd
-               tEnd = tEnd + eps(tempMax);
+               tEnd = tEnd + eps(tEnd);
             end
          end
          if isscalar(tEnd) && isnumeric(tEnd)

@@ -107,7 +107,7 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
             self.tStart = p.Results.tStart;
          end
          if isempty(p.Results.tEnd)
-            self.tEnd = max(cellfun(@max,eventTimes));
+            self.tEnd = max( max(cellfun(@max,eventTimes)) , self.tStart );
          else
             self.tEnd = p.Results.tEnd;
          end
@@ -142,7 +142,7 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
                error('PointProcess:tStart:InputValue',...
                   'tStart must be less than tStart.');
             elseif tStart == self.tEnd
-               self.tEnd = self.tEnd + eps(tempMax);
+               self.tEnd = self.tEnd + eps(self.tEnd);
             end
          end
          if isscalar(tStart) && isnumeric(tStart)
@@ -163,7 +163,7 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
                error('PointProcess:tEnd:InputValue',...
                   'tEnd must be greater than tStart.');
             elseif self.tStart == tEnd
-               tEnd = tEnd + eps(tempMax);
+               tEnd = tEnd + eps(tEnd);
             end
          end
          if isscalar(tEnd) && isnumeric(tEnd)
