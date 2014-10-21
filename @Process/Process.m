@@ -49,18 +49,19 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
    end
    
    methods(Abstract)
+      setInclusiveWindow(self)
       reset(self)
       chop(self,shiftToWindow)
+      % sync, currently this does nothing to the process. shouldn't we be
+      % able to make this permanent? Ie, define a new process
+      [values,times] = sync(self,event,varargin)
+      [s,labels] = extract(self,reqLabels)
       %windowfun(self,fun)
       %windowFun(self,fun,nOpt,varargin) % apply applyFunc func?
       windowFun(self,fun) % apply applyFunc func?
       %copy?
       %plot
-      setInclusiveWindow(self)
       
-      % extract = pull data out by labels TODO FOR POINTPROCESS
-      % sync, currently this does nothing to the process. shouldn't we be
-      % able to make this permanent? Ie, define a new process
       
       %spectrum
       %spectrogram
@@ -71,10 +72,12 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
       % prepend
       % fix = keep current data as original
       
+      % stack? same tStart and tEnd and Fs (for sampled)
+      
       % head
       % tail
       
-      %load?
+      obj = loadobj(S)
       %toFieldTrip
    end
    
