@@ -196,7 +196,7 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       end
       
       plot(self)
-      out = extract(self,labels)
+      [s,labels] = extract(self,labels)
    end
    
    methods(Access = protected)
