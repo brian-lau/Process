@@ -40,21 +40,34 @@ maxT = min(cellfun(@max,times));
 %%
 Fs = 1;
 x = zeros(101,1);
-x([1,51,101]) = 1;
+x([1,51,101]) = .5;
 s(1) = SampledProcess('values',x,'Fs',Fs,'tStart',0);
 x = zeros(51,1);
 x([1,26,51]) = 1;
 s(2) = SampledProcess('values',x,'Fs',Fs,'tStart',0);
 
 window = [-51 51]./Fs;
-offset = [50 25]./Fs;
+offset = [50 25.5]./Fs;
 
-[times,values] = sync(s,offset,window);
-stem(times,values)
+out = sync(s,offset,'window',window);
+stem(out.times,out.values)
 % s.setWindow({window+offset(1) window+offset(2)});
 % s.setOffset(-offset);
 % [times,values] = arrayfun(@(x) deal(x.times{1},x.values{1}),s,'uni',false);
+out = sync(s,offset);
+stem(out.times,out.values)
 
+
+%%
+x = [0 0 .5];
+s(1) = SampledProcess('values',x);
+x = [0 1 0];
+s(2) = SampledProcess('values',x);
+
+window = [-2 2];
+%offset = [1.5 0.5];
+offset = [1.9 0.5];
+out = sync(s,offset,'window',window);
 
 %%%%%%%%%%%% Windows outside of process start and end times extend as NaNs
 s = SampledProcess('values',1:5,'Fs',1,'tStart',0);
