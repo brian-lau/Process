@@ -160,7 +160,8 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       self = setInclusiveWindow(self)
       self = reset(self)
       obj = chop(self,shiftToWindow)
-      [values,times] = sync(self,event,varargin)
+      s = sync(self,event,varargin)
+      [s,labels] = extract(self,reqLabels)
 
       self = resample(self,newFs)
       self = filter(self,b,a,fix)
@@ -195,8 +196,7 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       function windowFun(self,fun) % apply applyFunc func?
       end
       
-      plot(self)
-      [s,labels] = extract(self,labels)
+      plot(self,varargin)
    end
    
    methods(Access = protected)

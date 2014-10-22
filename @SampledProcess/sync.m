@@ -1,6 +1,7 @@
 % should allow resampling
 % should handle different Fs for object array
 function s = sync(self,event,varargin)
+
 p = inputParser;
 p.KeepUnmatched= false;
 p.FunctionName = 'SampledProcess sync';
@@ -35,7 +36,6 @@ window = mat2cell(window,ones(nObj,1),2);
 self.setWindow(window);
 self.setOffset(-event);
 
-%% When there is interpolation, we need to replace self.times!
 [times,values] = arrayfun(@(x) deal(x.times{1},x.values{1}),self,'uni',false);
 if isequal(times{:})
    if nargout
@@ -43,7 +43,7 @@ if isequal(times{:})
       s.values = cell2mat(values);
    end
 elseif p.Results.commonTime && isequal(self.Fs) % interpolate
-   disp('interpolating');
+   %disp('interpolating');
    % Common sampling grid
    n = max(cellfun('prodofsize',times));
    dt = 1/self(1).Fs;
@@ -54,14 +54,22 @@ elseif p.Results.commonTime && isequal(self.Fs) % interpolate
       
    for i = 1:numel(values)
       temp(:,i) = interp1(times{i},values{i},t);
+      % Replace times & values in SampledProcess
+      self(i).times = {t};
+      self(i).values = {temp(:,i)};
    end
-   
+
    if nargout
       s.times = t;
       s.values = temp;
    end
 else
-   % return with potentially different sampling
+   % Different sampling frequencies
+   if nargout
+      s.times = times;
+      s.values = values;
+   end
+   % TODO allow resampling to common Fs?
 end
 
 % [y, Fout]=SincResample([x],2*length(x),1,0,'lanczos');

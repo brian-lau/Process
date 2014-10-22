@@ -69,53 +69,68 @@ window = [-2 2];
 offset = [1.9 0.5];
 out = sync(s,offset,'window',window);
 
-%%%%%%%%%%%% Windows outside of process start and end times extend as NaNs
-s = SampledProcess('values',1:5,'Fs',1,'tStart',0);
-assertEqual(s.times{1},(0:4)');
-assertEqual(s.values{1},(1:5)');
+%%
+% signals sampled at same Fs, tStart, numel
+dt = 0.00001;
+x(:,1) = cos(2*pi*(0:dt:(1-dt)))';
+x(:,2) = cos(2*pi*(0:dt:(1-dt))+pi/2)';
+x(:,3) = cos(2*pi*(0:dt:(1-dt))+pi)';
+s(1) = SampledProcess('values',x(:,1),'Fs',1/dt,'tStart',0);
+s(2) = SampledProcess('values',x(:,2),'Fs',1/dt,'tStart',0);
+s(3) = SampledProcess('values',x(:,3),'Fs',1/dt,'tStart',0);
 
-s.window = [-1.5 2];
-assertEqual(s.times{1},(-1:2)');
-assertEqual(s.values{1},[NaN;(1:3)']);
+% synchronize to trough of sinusoid
+window = [-2 2];
+offset = [0.5 .25 1];
+sync(s,offset,'window',window);
 
-s.window = [0 5.9];
-assertEqual(s.times{1},(0:5)');
-assertEqual(s.values{1},[(1:5)';NaN]);
+% Generate a sine wave at the expected phase
+t0 = -2;
+n = numel(s(1).times{1});
+t = t0 + (0:dt:(dt*(n-1)))';
+w = cos(2*pi*t + pi)';
 
-s.window = [-1.5 5.5];
-assertEqual(s.times{1},(-1:5)');
-assertEqual(s.values{1},[NaN;(1:5)';NaN]);
+% maximum absolute difference where signals have support
+arrayfun(@(x) max(abs(w - x.values{1}')),s)
 
-s.window = [-1.5 2 ; 0 5.9];
-assertEqual(s.times{1},(-1:2)');
-assertEqual(s.times{2},(0:5)');
-assertEqual(s.values{1},[NaN;(1:3)']);
-assertEqual(s.values{2},[(1:5)';NaN]);
+%%
+% signals sampled at same Fs, different tStart
+dt = 0.00001;
+x = cos(2*pi*(0:dt:(1-dt)))';
+s(1) = SampledProcess('values',x,'Fs',1/dt,'tStart',0);
+x = cos(2*pi*(-1:dt:(1-dt))+pi/2)';
+s(2) = SampledProcess('values',x,'Fs',1/dt,'tStart',-1);
+x = cos(2*pi*(-2:dt:(1-dt))+pi)';
+s(3) = SampledProcess('values',x,'Fs',1/dt,'tStart',-2);
 
-%% 
-Fs = 1000;
-dt = 1/Fs;
-s = SampledProcess('values',1:5,'Fs',Fs,'tStart',0);
-assertEqual(s.times{1},(0:4)'./Fs);
-assertEqual(s.values{1},(1:5)');
+% synchronize to trough of sinusoid
+window = [-2 2];
+offset = [0.5 .25 1];
+sync(s,offset,'window',window);
 
-s.window = [-1.5 2]./Fs;
-assertEqual(s.times{1},(-1:2)'./Fs);
-assertEqual(s.values{1},[NaN;(1:3)']);
+% Generate a sine wave at the expected phase
+t0 = -2;
+n = numel(s(1).times{1});
+t = t0 + (0:dt:(dt*(n-1)))';
+w = cos(2*pi*t + pi)';
 
-s.window = [0 5.9]./Fs;
-assertEqual(s.times{1},(0:5)'./Fs);
-assertEqual(s.values{1},[(1:5)';NaN]);
+% maximum absolute difference where signals have support
+arrayfun(@(x) max(abs(w - x.values{1}')),s)
 
-s.window = [-1.5 5.5]./Fs;
-assertEqual(s.times{1},(-1:5)'./Fs);
-assertEqual(s.values{1},[NaN;(1:5)';NaN]);
+%%
+% signals sampled at different Fs, tStart, numel
+dt = 0.00001;
+x = cos(2*pi*(0:dt:(1-dt)))';
+s(1) = SampledProcess('values',x,'Fs',1/dt,'tStart',0);
+dt = 0.0001;
+x = cos(2*pi*(0:dt:(1-dt))+pi/2)';
+s(2) = SampledProcess('values',x,'Fs',1/dt,'tStart',0);
+dt = 0.01;
+x = cos(2*pi*(0:dt:(1-dt))+pi)';
+s(3) = SampledProcess('values',x,'Fs',1/dt,'tStart',0);
 
-s.window = [-1.5 2 ; 0 5.9]./Fs;
-assertEqual(s.times{1},(-1:2)'./Fs);
-assertEqual(s.times{2},(0:5)'./Fs);
-assertEqual(s.values{1},[NaN;(1:3)']);
-assertEqual(s.values{2},[(1:5)';NaN]);
-
-
+% synchronize to trough of sinusoid
+window = [-2 2];
+offset = [0.5 .25 1];
+out = sync(s,offset,'window',window);
 
