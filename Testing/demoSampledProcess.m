@@ -43,7 +43,7 @@ x = zeros(101,1);
 x([1,51,101]) = .5;
 s(1) = SampledProcess('values',x,'Fs',Fs,'tStart',0);
 x = zeros(51,1);
-x([1,26,51]) = 1;
+x([1,26,51]) = 2;
 s(2) = SampledProcess('values',x,'Fs',Fs,'tStart',0);
 
 window = [-51 51]./Fs;
