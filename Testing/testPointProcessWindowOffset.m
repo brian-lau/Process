@@ -1,7 +1,6 @@
 function test_suite = testPointProcessWindowOffset
 initTestSuite;
 
-
 %%
 function testWindow
 % Setting window alone
@@ -14,8 +13,7 @@ assertEqual(p.times{1},(5:10)');
 assertEqual(p.index{1},(5:10)');
 
 function testWindow_multi
-% Setting window alone, multiple processes (defined as having same start
-% and end times)
+% Setting window alone, multiple processes (defined as having same start and end times)
 % non-overlapping
 p = PointProcess('times',{[1:5] [6:10]});
 p.window = [5 10];

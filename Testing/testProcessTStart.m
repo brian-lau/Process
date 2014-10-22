@@ -38,7 +38,7 @@ assertEqual(s.tStart,0);
 assertEqual(s.times{1}(1),0);
 assertEqual(s.times_(1),0);
 
-function testPointProcessSetTstart
+function testPointProcessContructTstart
 p = PointProcess('times',0:10,'tStart',0);
 assertEqual(p.tStart,0);
 
@@ -53,7 +53,7 @@ assertEqual(p.tStart,-10);
 p = PointProcess('times',0:10,'tStart',100);
 assertEqual(p.tStart,100);
 
-function testSampledProcessSetTstart
+function testSampledProcessContructTstart
 s = SampledProcess('values',1:10,'tStart',100);
 assertEqual(s.tStart,100);
 assertEqual(s.times{1}(1),100);
@@ -64,12 +64,50 @@ assertEqual(s.tStart,-100);
 assertEqual(s.times{1}(1),-100);
 assertEqual(s.times_(1),-100);
 
+function testPointProcessSetTstart
+p = PointProcess('times',0:10,'values',0:10);
+p.tStart = 5;
+assertEqual(p.tStart,5);
+assertEqual(p.times_{1}',5:10);
+assertEqual(numel(p.times_{1}),numel(p.values_{1}));
+assertEqual(p.values_{1}',5:10);
+assertEqual(p.times{1}',5:10);
+assertEqual(numel(p.times{1}),numel(p.values{1}));
+assertEqual(p.values{1}',5:10);
 
-% 
-% 
-% f = @() PointProcess('shouldnotwork');
-% assertExceptionThrown(f, 'PointProcess:Constructor:InputFormat');
-% 
-% f = @() PointProcess({'shouldnotwork'});
-% assertExceptionThrown(f, 'PointProcess:Constructor:InputFormat');
-% assertEqual(p.times_{1}(1),0);
+p = PointProcess('times',0:10,'values',0:10);
+p.tStart = -5;
+assertEqual(p.tStart,-5);
+assertEqual(p.times_{1}',0:10);
+assertEqual(numel(p.times_{1}),numel(p.values_{1}));
+assertEqual(p.values_{1}',0:10);
+assertEqual(p.times{1}',0:10);
+assertEqual(numel(p.times{1}),numel(p.values{1}));
+assertEqual(p.values{1}',0:10);
+
+f = @() set(p,'tStart',11);
+assertExceptionThrown(f, 'PointProcess:tStart:InputValue');
+
+function testSampledProcessSetTstart
+s = SampledProcess('values',0:10);
+s.tStart = 5;
+assertEqual(s.tStart,5);
+assertEqual(s.times_',5:10);
+assertEqual(numel(s.times_),numel(s.values_));
+assertEqual(s.values_',5:10);
+assertEqual(s.times{1}',5:10);
+assertEqual(numel(s.times{1}),numel(s.values{1}));
+assertEqual(s.values{1}',5:10);
+
+s = SampledProcess('values',0:10);
+s.tStart = -5;
+assertEqual(s.tStart,-5);
+assertEqual(s.times_',-5:10);
+assertEqual(numel(s.times_),numel(s.values_));
+assertEqual(s.values_',[nan(1,5),0:10]);
+assertEqual(s.times{1}',-5:10);
+assertEqual(numel(s.times{1}),numel(s.values{1}));
+assertEqual(s.values{1}',[nan(1,5),0:10]);
+
+f = @() set(s,'tStart',11);
+assertExceptionThrown(f, 'SampledProcess:tStart:InputValue');

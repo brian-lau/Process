@@ -27,13 +27,13 @@ assertExceptionThrown(f, 'PointProcess:Constructor:InputFormat');
 f = @() PointProcess({'shouldnotwork'});
 assertExceptionThrown(f, 'PointProcess:Constructor:InputFormat');
 
-% function testNoTimes
-% p = PointProcess('info',{'dog'},'infoKeys',{'cat'});
-% assertEqual(p.count,0);
-% assertEqual(p.times_,[]);
-% assertEqual(p.times,[]);
-% assertEqual(p.values_,[]);
-% assertEqual(p.values,[]);
+function testNoTimes
+p = PointProcess('info',containers.Map({'cat'},{'dog'}));
+assertEqual(p.count,0);
+assertEqual(p.times_,[]);
+assertEqual(p.times,[]);
+assertEqual(p.values_,[]);
+assertEqual(p.values,[]);
 
 %%
 function testTimes
@@ -137,13 +137,3 @@ map = containers.Map(keys,values);
 assertEqual(p.info.keys,map.keys);
 assertEqual(p.info.values,map.values);
 
-% function testInfoBadKey
-% f = @() PointProcess('info',{'dog' 'monkey' 1:10},'infoKeys',{'cat' 'shine' 1});
-% assertExceptionThrown(f, 'PointProcess:Constructor:InputFormat');
-% 
-% f = @() PointProcess('info',{'dog' 'monkey'},'infoKeys',{'cat' 'shine' 'rain'});
-% assertExceptionThrown(f, 'PointProcess:Constructor:InputFormat');
-
-% function testInfoDefaultKey
-% p = PointProcess('info',{1 2 3});
-% assertEqual(p.info.keys,{'key1' 'key2' 'key3'});
