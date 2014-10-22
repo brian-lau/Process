@@ -52,8 +52,6 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
       setInclusiveWindow(self)
       reset(self)
       chop(self,shiftToWindow)
-      % sync, currently this does nothing to the process. shouldn't we be
-      % able to make this permanent? Ie, define a new process
       s = sync(self,event,varargin)
       [s,labels] = extract(self,reqLabels)
       %windowfun(self,fun)
