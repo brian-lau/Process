@@ -2,6 +2,9 @@
 % o Probably should place tStart/tEnd
 % o must check for common start and end times!
 
+% o methods for 
+%   o adding processes
+%   o 
 classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Copyable
    properties
       info@containers.Map % Information about segment

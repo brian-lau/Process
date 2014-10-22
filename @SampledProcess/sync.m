@@ -37,6 +37,7 @@ self.setWindow(window);
 self.setOffset(-event);
 
 [times,values] = arrayfun(@(x) deal(x.times{1},x.values{1}),self,'uni',false);
+
 if isequal(times{:})
    if nargout
       s.times = times{1};

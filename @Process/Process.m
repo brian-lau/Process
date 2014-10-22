@@ -19,10 +19,10 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
    end
    properties(AbortSet)
       % tStart/tEnd are currently in subclasses since setters are different for each
-      %tStart % Start time of process
-      %tEnd   % End time of process
-      window % [min max] time window of interest
-      offset % Offset of event/sample times relative to window
+      %tStart  % Start time of process
+      %tEnd    % End time of process
+      window   % [min max] time window of interest
+      offset   % Offset of event/sample times relative to window
    end
    properties
       labels
@@ -33,16 +33,16 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
    properties(SetAccess = protected, Transient = true)
       % Note that any offset is applied *after* windowing, so times can be
       % outside of the windows property
-      times % Event/sample times
-      values % Attribute/value associated with each time
+      times    % Event/sample times
+      values   % Attribute/value associated with each time
       isValidWindow % Boolean if window(s) lies within tStart and tEnd
    end
    properties(SetAccess = protected, Hidden = true)
-      index % Indices into times/values in window
-      times_ % Original event/sample times
-      values_ % Original attribute/values
-      window_ % Original [min max] time window
-      offset_ % Original offset
+      index    % Indices into times/values in window
+      times_   % Original event/sample times
+      values_  % Original attribute/values
+      window_  % Original [min max] time window
+      offset_  % Original offset
    end
    properties(SetAccess = protected)
       version = '0.0.0'
@@ -54,7 +54,7 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
       chop(self,shiftToWindow)
       % sync, currently this does nothing to the process. shouldn't we be
       % able to make this permanent? Ie, define a new process
-      [values,times] = sync(self,event,varargin)
+      s = sync(self,event,varargin)
       [s,labels] = extract(self,reqLabels)
       %windowfun(self,fun)
       %windowFun(self,fun,nOpt,varargin) % apply applyFunc func?

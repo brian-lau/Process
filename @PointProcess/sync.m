@@ -1,11 +1,10 @@
-%function [values,times] = sync(self,event,window)
 function [values,times] = sync(self,event,varargin)
+
 p = inputParser;
 p.KeepUnmatched= false;
 p.FunctionName = 'PointProcess sync';
 p.addRequired('event',@(x) isnumeric(x));
 p.addParamValue('window',[]);
-%p.addParamValue('resample',[]);
 p.parse(event,varargin{:});
 
 self.setInclusiveWindow;
@@ -22,7 +21,6 @@ nObj = numel(self);
 if size(window,1) == 1
    window = repmat(window,nObj,1);
    window = bsxfun(@plus,window,event(:));
-   %            window = mat2cell(window,ones(nObj,1),2);
    
    self.setWindow(window);
    self.setOffset(-event);

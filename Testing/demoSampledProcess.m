@@ -134,3 +134,15 @@ window = [-2 2];
 offset = [0.5 .25 1];
 out = sync(s,offset,'window',window);
 
+%%
+dt = 0.00001;
+x(:,1) = cos(2*pi*(0:dt:(1-dt)))';
+x(:,2) = cos(2*pi*(0:dt:(1-dt))+pi)';
+s(1) = SampledProcess('values',x,'Fs',1/dt,'tStart',0);
+dt = 0.0001;
+x = cos(2*pi*(0:dt:(1-dt))+pi/2)';
+s(2) = SampledProcess('values',x,'Fs',1/dt,'tStart',0);
+dt = 0.01;
+x = cos(2*pi*(0:dt:(1-dt))+pi)';
+s(3) = SampledProcess('values',x,'Fs',1/dt,'tStart',0);
+

@@ -34,7 +34,7 @@ if iscell(window)
          validWindow{1,i} = Process.checkWindow(window{i},size(window{i},1));
       end
    else
-      error('process:checkWindow:InputFormat',...
+      error('Process:checkWindow:InputFormat',...
          'Cell array window must be {[nx2]} or [nObjs x 2]');
    end
 else
@@ -45,7 +45,7 @@ else
       end
    end
    if any(window(:,1)>=window(:,2))
-      error('process:checkWindow:InputValue',...
+      error('Process:checkWindow:InputValue',...
          'First element of window must be less than second');
    end
    validWindow = window;

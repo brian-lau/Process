@@ -13,4 +13,7 @@ for i = 1:numel(self)
    else
       self(i).window = [tempMin tempMax];
    end
+   if isempty(self(i).window)
+      self(i).window = [NaN NaN];
+   end
 end
