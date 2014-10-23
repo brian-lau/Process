@@ -33,22 +33,17 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
          p.KeepUnmatched= false;
          p.FunctionName = 'Segment constructor';
          p.addParamValue('info',containers.Map('KeyType','char','ValueType','any'));
-         p.addParamValue('pointProcesses',[]);
-         p.addParamValue('sampledProcesses',[]);
+         p.addParamValue('PointProcesses',[]);
+         p.addParamValue('SampledProcesses',[]);
          p.parse(varargin{:});
-         
+
          self.info = p.Results.info;
-%          if ~isempty(p.Results.pointProcesses)
-%             self.pointProcesses = p.Results.pointProcesses;
-%          end
-%          self.sampledProcesses = p.Results.sampledProcesses;
-%          self.data = {self.pointProcesses self.sampledProcesses};
          self.data = {};
-         if ~isempty(p.Results.pointProcesses)
-            self.data = [self.data {p.Results.pointProcesses}];
+         if ~isempty(p.Results.PointProcesses)
+            self.data = [self.data {p.Results.PointProcesses}];
          end
-         if ~isempty(p.Results.sampledProcesses)
-            self.data = [self.data {p.Results.sampledProcesses}];
+         if ~isempty(p.Results.SampledProcesses)
+            self.data = [self.data {p.Results.SampledProcesses}];
          end
       end% constructor
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

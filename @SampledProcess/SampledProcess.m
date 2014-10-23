@@ -162,7 +162,7 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       obj = chop(self,shiftToWindow)
       s = sync(self,event,varargin)
       [s,labels] = extract(self,reqLabels)
-      output = windowFun(self,fun,nOpt,varargin)
+      output = apply(self,fun,nOpt,varargin)
 
       self = resample(self,newFs)
       self = filter(self,b,a,fix)

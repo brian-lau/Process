@@ -1,4 +1,8 @@
+% TODO
+% o common timescale
+% o gui elements allowing scrolling
 function plot(self,varargin)
+
 figure; hold on
 for i = 1:numel(self)
    subplot(numel(self),1,i);

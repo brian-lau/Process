@@ -75,17 +75,13 @@ end
 
 if numel(self) == 1
    if nOpt == 1
-      if size(self.values{1},2) > 1
-         output = cellfun(fun,self.values,varargin{:},'uni',false);
-      else
-         output = cellfun(fun,self.values,varargin{:});
-      end
+      output = cellfun(fun,self.times,varargin{:});
    else
-      [output{1:nOpt}] = cellfun(fun,self.values,varargin{:});
+      [output{1:nOpt}] = cellfun(fun,self.times,varargin{:});
    end
 else
    output = cell(size(self));
    for i = 1:numel(self)
-      output{i} = windowFun(self(i),fun,nOpt,varargin{:});
+      output{i} = apply(self(i),fun,nOpt,varargin{:});
    end
 end

@@ -1,4 +1,4 @@
-function output = windowFun(self,fun,nOpt,varargin)
+function output = apply(self,fun,nOpt,varargin)
 % Apply a function to windowedTimes
 %
 % FUN should expect an array of event times. The output format of
@@ -75,13 +75,17 @@ end
 
 if numel(self) == 1
    if nOpt == 1
-      output = cellfun(fun,self.times,varargin{:});
+      if size(self.values{1},2) > 1
+         output = cellfun(fun,self.values,varargin{:},'uni',false);
+      else
+         output = cellfun(fun,self.values,varargin{:});
+      end
    else
-      [output{1:nOpt}] = cellfun(fun,self.times,varargin{:});
+      [output{1:nOpt}] = cellfun(fun,self.values,varargin{:});
    end
 else
    output = cell(size(self));
    for i = 1:numel(self)
-      output{i} = windowFun(self(i),fun,nOpt,varargin{:});
+      output{i} = apply(self(i),fun,nOpt,varargin{:});
    end
 end

@@ -56,10 +56,9 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
       [s,labels] = extract(self,reqLabels)
       %windowfun(self,fun)
       %windowFun(self,fun,nOpt,varargin) % apply applyFunc func?
-      windowFun(self,fun) % apply applyFunc func?
+      apply(self,fun) % apply applyFunc func?
       %copy?
       %plot
-      
       
       %spectrum
       %spectrogram
@@ -68,10 +67,11 @@ classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Cop
       
       % append
       % prepend
-      % fix = keep current data as original
       
       % stack? same tStart and tEnd and Fs (for sampled)
       
+      % fix = keep current data as original
+
       % head
       % tail
       

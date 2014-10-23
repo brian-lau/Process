@@ -11,6 +11,9 @@ p.addOptional('commonTime',true,@(x) islogical(x));
 %p.addParamValue('resample',[]);
 p.parse(event,varargin{:});
 
+if numel(event) == 1
+   event = repmat(event,size(self));
+end
 assert(numel(event)==numel(self),'SampledProcess:sync:InputValue',...
    'numel(event) should match numel(SampledProcess)');
 

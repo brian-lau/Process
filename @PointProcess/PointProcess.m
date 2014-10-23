@@ -193,7 +193,7 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
       [values,times] = sync(self,event,varargin)
       [s,labels] = extract(self,reqLabels)
       %%
-      output = windowFun(self,fun,nOpt,varargin)
+      output = apply(self,fun,nOpt,varargin)
       self = insert(self,times,values,labels)
       self = remove(self,times,labels)
       output = valueFun(self,fun,varargin)
