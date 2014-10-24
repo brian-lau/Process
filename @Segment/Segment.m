@@ -9,20 +9,18 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
    properties
       info@containers.Map % Information about segment
    end
-   properties%(Hidden=true)%(GetAccess=private)
-      %pointProcesses@PointProcess
-      %sampledProcesses@SampledProcess
+   properties
+      labels
       data
    end
    properties(Dependent=true)
       dataType
-      window
+      %window
       sameWindow
       sameOffset
    end
    
    methods
-      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       %% Constructor
       function self = Segment(varargin)
          
@@ -35,6 +33,7 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
          p.addParamValue('info',containers.Map('KeyType','char','ValueType','any'));
          p.addParamValue('PointProcesses',[]);
          p.addParamValue('SampledProcesses',[]);
+         p.addParamValue('labels',{},@(x) iscell(x) || ischar(x));
          p.parse(varargin{:});
 
          self.info = p.Results.info;
@@ -45,8 +44,11 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
          if ~isempty(p.Results.SampledProcesses)
             self.data = [self.data {p.Results.SampledProcesses}];
          end
+         
+         % Create labels
+         self.labels = p.Results.labels;
+         
       end% constructor
-      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       function list = get.dataType(self)
          list = cellfun(@(x) class(x),self.data,'uni',0);
@@ -74,9 +76,35 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
          end
       end
       
+      function set.labels(self,labels)
+         % FIXME, prevent clashes with attribute names
+         % FIXME, should check that labels are unique
+         n = numel(self.data);
+         if isempty(labels)
+            for i = 1:n
+               labels{1,i} = ['id' num2str(i)];
+            end
+            self.labels = labels;
+         elseif iscell(labels)
+            if numel(labels) == n
+               if all(cellfun(@isstr,labels))
+                  self.labels = labels;
+               else
+                  error('bad label');
+               end
+            else
+               error('mismatch');
+            end
+         elseif (n==1) && ischar(labels)
+            self.labels = {labels};
+         else
+            error('bad label');
+         end
+      end
+      
       function self = sync(self,event,varargin)
          for i = 1:numel(self)
-            cellfun(@(x) x.sync(event,varargin{:}),self(i).data);
+            cellfun(@(x) x.sync(event,varargin{:}),self(i).data,'uni',false);
          end
       end
       
