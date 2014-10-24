@@ -156,44 +156,28 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       function dim = get.dim(self)
          dim = cellfun(@(x) size(x),self.values,'uni',false);
       end
-            
+      
+      % 
       self = setInclusiveWindow(self)
       self = reset(self)
       obj = chop(self,shiftToWindow)
       s = sync(self,event,varargin)
+
+      % Transform
+      self = filter(self,b,a,fix)
+      [self,b] = highpass(self,corner,order,fix)
+      [self,b] = lowpass(self,corner,order)
+      [self,b] = bandpass(self,corner,order)
+      self = bandInterp(self,freqs,freqrange,chunksize)
+      self = resample(self,newFs)
+      self = smooth(self)
+      self = detrend(self)
+
+      % Output
       [s,labels] = extract(self,reqLabels)
       output = apply(self,fun,nOpt,varargin)
 
-      self = resample(self,newFs)
-      self = filter(self,b,a,fix)
-
-      [self,b] = highpass(self,corner,order,fix)
-      function [self,b] = lowpass(self,corner,order)
-      end
-      
-      function [self,b] = bandpass(self,corner,order)
-      %b = firls(MUA_FILT_ORDER,[0 450/nyquist 500/nyquist 2500/nyquist 2550/nyquist 1],[0 0 1 1 0 0]);
-      end
-
-      function self = interp(self)
-      end
-
-      function self = smooth(self)
-      end
-      
-      function self = interpFreq(self,freqs,freqrange,chunksize)
-         for i = 1:numel(self)
-            for j = 1:size(self(i).window,1)
-               for k = 1:size(self.values{j},2)
-                  self(i).values{j}(:,k) = chunkwiseDeline(self(i).values{j}(:,k),...
-                     self(i).Fs,freqs,freqrange,chunksize);
-               end
-            end
-         end
-      end
-      
-      self = detrend(self)
-
+      % Visualization
       plot(self,varargin)
    end
    
@@ -210,4 +194,4 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       pre = extendPre(tStartOld,tStartNew,dt)
       post = extendPost(tEndOld,tEndNew,dt)
    end
-end % classdef
+end

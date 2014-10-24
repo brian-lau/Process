@@ -1,13 +1,14 @@
 % should allow resampling
 % should handle different Fs for object array
-function s = sync(self,event,varargin)
+function self = sync(self,event,varargin)
 
 p = inputParser;
 p.KeepUnmatched= false;
 p.FunctionName = 'SampledProcess sync';
 p.addRequired('event',@(x) isnumeric(x));
 p.addOptional('window',[],@(x) isnumeric(x) && (size(x,1)==1) && (size(x,2)==2)); 
-p.addOptional('commonTime',true,@(x) islogical(x)); 
+p.addOptional('commonTime',true,@(x) islogical(x));
+p.addOptional('interpMethod','linear',@(x) ischar(x));
 %p.addParamValue('resample',[]);
 p.parse(event,varargin{:});
 
@@ -42,13 +43,9 @@ self.setOffset(-event);
 [times,values] = arrayfun(@(x) deal(x.times{1},x.values{1}),self,'uni',false);
 
 if isequal(times{:})
-   if nargout
-      s.times = times{1};
-      s.values = cell2mat(values);
-   end
-elseif p.Results.commonTime && isequal(self.Fs) % interpolate
-   %disp('interpolating');
-   % Common sampling grid
+   % Resample here if requested
+elseif p.Results.commonTime && isequal(self.Fs)
+   % Interpolate to common sampling grid defined by window
    n = max(cellfun('prodofsize',times));
    dt = 1/self(1).Fs;
    while (n*dt) <= (origWindow(2) - origWindow(1))
@@ -57,22 +54,14 @@ elseif p.Results.commonTime && isequal(self.Fs) % interpolate
    t = SampledProcess.tvec(origWindow(1),dt,n);
       
    for i = 1:numel(values)
-      temp(:,i) = interp1(times{i},values{i},t);
+      temp(:,i) = interp1(times{i},values{i},t,p.Results.interpMethod);
       % Replace times & values in SampledProcess
       self(i).times = {t};
       self(i).values = {temp(:,i)};
    end
-
-   if nargout
-      s.times = t;
-      s.values = temp;
-   end
 else
    % Different sampling frequencies
-   if nargout
-      s.times = times;
-      s.values = values;
-   end
+
    % TODO allow resampling to common Fs?
 end
 
