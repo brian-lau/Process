@@ -132,7 +132,7 @@ s(3) = SampledProcess('values',x,'Fs',1/dt,'tStart',0);
 % synchronize to trough of sinusoid
 window = [-2 2];
 offset = [0.5 .25 1];
-out = sync(s,offset,'window',window);
+sync(s,offset,'window',window);
 
 %%
 dt = 0.00001;
