@@ -170,8 +170,9 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) SampledProcess < Proces
       [self,b] = bandpass(self,corner,order)
       self = bandInterp(self,freqs,freqrange,chunksize)
       self = resample(self,newFs)
-      self = smooth(self)
+      %self = smooth(self)
       self = detrend(self)
+      self = map(self,func,varargin)
 
       % Output
       [s,labels] = extract(self,reqLabels)

@@ -1,3 +1,4 @@
+%%
 % Trial 1, 0:1 seconds
 dt = 0.00001;
 t = cos(2*pi*(0:dt:(1-dt)))';
@@ -31,8 +32,6 @@ for i = 1:numel(sig)
    data(i) = Segment('info',temp,'SampledProcesses',sig{i});
 end
 
-
-
 %
 query = linq();
 out = query.place(data)...
@@ -41,3 +40,22 @@ out = query.place(data)...
    .select(@(x) extract(x,'SampledProcess')).toArray();
 
 out.apply(@(x) nanstd(x))
+
+%%
+
+data(1) = Segment('SampledProcesses',...
+   {SampledProcess(randn(5,2)) SampledProcess(randn(5,2))},...
+   'PointProcesses',...
+   PointProcess(1:5));
+data(2) = Segment('SampledProcesses',...
+   {SampledProcess(randn(10,2)) SampledProcess(randn(10,2))},...
+   'PointProcesses',...
+   PointProcess(1:10));
+
+proc = data.extract('pid3')
+proc{1}{1}
+proc{2}{1}
+
+proc = data.extract('pointprocess','datatype')
+proc{1}{1}
+proc{2}{1}

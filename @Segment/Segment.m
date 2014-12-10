@@ -13,7 +13,7 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) Segment < hgsetget & ma
       labels
       data % FIXME: rename this to processes
    end
-   properties(Dependent=true)
+   properties(SetAccess = private, Dependent = true)
       dataType
       %window
       sameWindow
@@ -23,7 +23,7 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) Segment < hgsetget & ma
    methods
       %% Constructor
       function self = Segment(varargin)
-         
+         % TODO
          % if all inputs are of type PointProcess or SampledProcess,
          % cat and add (no need to pass in paramvalue)
          
@@ -39,10 +39,18 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) Segment < hgsetget & ma
          self.info = p.Results.info;
          self.data = {};
          if ~isempty(p.Results.PointProcesses)
-            self.data = [self.data {p.Results.PointProcesses}];
+            if iscell(p.Results.PointProcesses)
+               self.data = cat(2,self.data,p.Results.PointProcesses);
+            else
+               self.data = cat(2,self.data,{p.Results.PointProcesses});
+            end
          end
          if ~isempty(p.Results.SampledProcesses)
-            self.data = [self.data {p.Results.SampledProcesses}];
+            if iscell(p.Results.SampledProcesses)
+               self.data = cat(2,self.data,p.Results.SampledProcesses);
+            else
+               self.data = cat(2,self.data,{p.Results.SampledProcesses});
+            end
          end
          
          % Create labels
@@ -82,7 +90,7 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) Segment < hgsetget & ma
          n = numel(self.data);
          if isempty(labels)
             for i = 1:n
-               labels{1,i} = ['id' num2str(i)];
+               labels{1,i} = ['pid' num2str(i)];
             end
             self.labels = labels;
          elseif iscell(labels)
@@ -102,22 +110,9 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) Segment < hgsetget & ma
          end
       end
       
-      function self = sync(self,event,varargin)
-         for i = 1:numel(self)
-            cellfun(@(x) x.sync(event,varargin{:}),self(i).data,'uni',false);
-         end
-      end
+      self = sync(self,event,varargin)
       
-      function proc = extract(self,dataType)
-         % FIXME, for object array
-         % FIXME, handle multiple returns???
-         %keyboard
-         for i = 1:numel(self)
-            ind = cellfun(@(x) strcmp(class(x),dataType),self(i).data);
-            proc{i} = self(i).data{ind};
-         end
-      end
-      
+      proc = extract(self,request,flag)
       % reset
       % window
       % offset
