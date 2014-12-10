@@ -5,13 +5,13 @@
 % o methods for 
 %   o adding processes
 %   o 
-classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Copyable
+classdef(CaseInsensitiveProperties, TruncatedProperties) Segment < hgsetget & matlab.mixin.Copyable
    properties
       info@containers.Map % Information about segment
    end
    properties
       labels
-      data
+      data % FIXME: rename this to processes
    end
    properties(Dependent=true)
       dataType

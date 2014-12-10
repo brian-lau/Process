@@ -2,7 +2,7 @@
 % If multiple processes, currently cannot be multidimensional,
 % time = rows
 
-classdef(CaseInsensitiveProperties = true) SampledProcess < Process   
+classdef(CaseInsensitiveProperties, TruncatedProperties) SampledProcess < Process   
    properties(AbortSet)%(AbortSet, Access=?Segment)
       tStart % Start time of process
       tEnd   % End time of process
@@ -43,11 +43,11 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
          p.addParamValue('info',containers.Map('KeyType','char','ValueType','any'));
          p.addParamValue('Fs',1);
          p.addParamValue('values',[],@ismatrix );
-         p.addParamValue('labels',{});
-         p.addParamValue('quality',[]);
+         p.addParamValue('labels',{},@(x) iscell(x) || ischar(x));
+         p.addParamValue('quality',[],@isnumeric);
          p.addParamValue('window',[],@isnumeric);
          p.addParamValue('offset',[],@isnumeric);
-         p.addParamValue('tStart',0);
+         p.addParamValue('tStart',0,@isnumeric);
          p.addParamValue('tEnd',[],@isnumeric);
          p.parse(varargin{:});
          
