@@ -11,7 +11,7 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) Segment < hgsetget & ma
    end
    properties
       labels
-      data % FIXME: rename this to processes
+      data % FIXME: rename this to processes, validate through setter
    end
    properties(SetAccess = private, Dependent = true)
       dataType

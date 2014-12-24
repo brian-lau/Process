@@ -209,17 +209,17 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) PointProcess < Process
       plus(x,y)
       minus(x,y)
       bool = eq(x,y)
-   end % methods (Public)
+   end
      
    methods(Access = protected)
       applyWindow(self)
       applyOffset(self,undo)
       discardBeforeStart(self)
       discardAfterEnd(self)
-   end % methods(Protected)
+   end
 
    methods(Static)
       obj = loadobj(S)
    end
- end % classdef
+end
 
