@@ -164,12 +164,12 @@ classdef(CaseInsensitiveProperties = true) SampledProcess < Process
       s = sync(self,event,varargin)
 
       % Transform
-      self = filter(self,b,a,fix)
-      [self,b] = highpass(self,corner,order,fix)
-      [self,b] = lowpass(self,corner,order)
-      [self,b] = bandpass(self,corner,order)
-      self = bandInterp(self,freqs,freqrange,chunksize)
-      self = resample(self,newFs)
+      self = filter(self,b,varargin)
+      [self,b] = highpass(self,corner,varargin)
+      [self,b] = lowpass(self,corner,varargin)
+      [self,b] = bandpass(self,corner,varargin)
+      %self = bandInterp(self,freqs,freqrange,chunksize)
+      self = resample(self,newFs,varargin)
       %self = smooth(self)
       self = detrend(self)
       self = map(self,func,varargin)

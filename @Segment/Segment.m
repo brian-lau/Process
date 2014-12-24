@@ -11,7 +11,7 @@ classdef(CaseInsensitiveProperties = true) Segment < hgsetget & matlab.mixin.Cop
    end
    properties
       labels
-      data
+      data % FIXME, need a setter to validate
    end
    properties(SetAccess = private, Dependent = true)
       dataType
