@@ -1,4 +1,4 @@
-classdef(CaseInsensitiveProperties = true) PointProcess < Process         
+classdef(CaseInsensitiveProperties, TruncatedProperties) PointProcess < Process         
    properties(AbortSet)
       tStart % Start time of process
       tEnd   % End time of process
@@ -50,8 +50,8 @@ classdef(CaseInsensitiveProperties = true) PointProcess < Process
          p.addParamValue('info',containers.Map('KeyType','char','ValueType','any'));
          p.addParamValue('times',{},@(x) isnumeric(x) || iscell(x));
          p.addParamValue('values',{},@(x) isvector(x) || iscell(x) );
-         p.addParamValue('labels',{});
-         p.addParamValue('quality',[]);
+         p.addParamValue('labels',{},@(x) iscell(x) || ischar(x));
+         p.addParamValue('quality',[],@isnumeric);
          p.addParamValue('window',[],@isnumeric);
          p.addParamValue('offset',0,@isnumeric);
          p.addParamValue('tStart',[],@isnumeric);
