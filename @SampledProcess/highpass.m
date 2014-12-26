@@ -16,7 +16,7 @@ assert(numel(Fs)==1,'Must have same Fs');
 nyquist = self.Fs/2;
 
 if isempty(p.Results.order)
-   order = firwsord('hamming',Fs,p.Results.tbw);
+   order = pop_firwsord('hamming',Fs,p.Results.tbw);
 else
    order = p.Results.order;
 end
