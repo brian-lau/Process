@@ -178,6 +178,8 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) SampledProcess < Proces
       [s,labels] = extract(self,reqLabels)
       output = apply(self,fun,nOpt,varargin)
 
+      dat = convert2Fieldtrip(self)
+      
       % Visualization
       plot(self,varargin)
    end
