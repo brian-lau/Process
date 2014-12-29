@@ -9,7 +9,7 @@
 %   - clock, timeUnit
 % FIXME offset is a misleading name? could imply offset in values...
 % TODO should we allow initial process be multiply windowed???
-classdef(CaseInsensitiveProperties = true) Process < hgsetget & matlab.mixin.Copyable
+classdef(CaseInsensitiveProperties, TruncatedProperties) Process < hgsetget & matlab.mixin.Copyable
    properties
       info@containers.Map % Information about process
    end
