@@ -1,8 +1,10 @@
-function self = setInclusiveWindow(self)
 % Set windows to earliest and latest event times
 %
 % SEE ALSO
 % window, setWindow, applyWindow
+
+function self = setInclusiveWindow(self)
+
 for i = 1:numel(self)
    tempMin = cellfun(@(x) min(x(:,1)),self(i).times_,'uni',0);
    tempMin = min(vertcat(tempMin{:}));

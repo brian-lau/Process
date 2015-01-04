@@ -1,4 +1,3 @@
-function applyWindow(self)
 % Window original event times, setting
 %     times
 %     values
@@ -6,6 +5,8 @@ function applyWindow(self)
 %     isValidWindow
 % TODO
 % Windows are inclusive on both sides, does this make sense???
+
+function applyWindow(self)
 
 nWindow = size(self.window,1);
 times = self.times_;

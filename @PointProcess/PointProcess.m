@@ -1,6 +1,8 @@
 % removed requirement of unique eventTimes (overlapping spikes, etc),
 % should default to unique values, possibly check for unique values when
 % passed in
+%
+% uniformValues = true should allow concatonation of values as arrays
 
 classdef(CaseInsensitiveProperties, TruncatedProperties) PointProcess < Process         
    properties(AbortSet)
@@ -67,6 +69,8 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) PointProcess < Process
          if ~isempty(p.Results.times)
             if isnumeric(p.Results.times) % one PointProcess
                if isrow(p.Results.times)
+                  % FIXME, this should probably check EventProcess in case
+                  % we have one event
                   [eventTimes{1},tInd] = sortrows(p.Results.times');
                else
                   [eventTimes{1},tInd] = sortrows(p.Results.times);
@@ -75,6 +79,8 @@ classdef(CaseInsensitiveProperties, TruncatedProperties) PointProcess < Process
                times = p.Results.times;
                for i = 1:numel(times);
                   if isrow(times{i})
+                  % FIXME, this should probably check EventProcess in case
+                  % we have one event
                      times{i} = times{i}';
                   end
                end
